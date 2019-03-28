@@ -3,24 +3,26 @@
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/hesim)](https://cran.r-project.org/package=hesim)
 
 # Overview
-`hesim` is an R package for health economic simulation modeling and decision analysis. The package can help facilitate computationally intensive simulation modeling and be used to analyze the output of simulation models. Current functionality includes:
+`hesim` is an R package for health economic simulation modeling and decision analysis that provides a general framework for integrating statistical analyses with economic evaluation. The package currently supports N-state partitioned survival models (PSMs) and individual-level continuous time state transition models (CTSTMs), as well as summarizing the output of probabilistic sensitivity analysis (PSA). It is designed for high performance simulation modeling and heavily utilizes `Rcpp` and `data.table`. `hesim` is being actively developed and subsequent versions will provide support for cohort-level state transition models. 
 
-* Individualized cost-effectiveness analysis
-* Random sampling for probabilistic sensitivity analysis (PSA) and individual patient simulation (IPS)
+Features of the current version include:
 
-To ensure that simulations can be run (and analyzed) in a reasonable amount of time, most functions are written in C++ using `Rcpp` and data manipulations are performed using the `data.table` package. `hesim` is therefore well suited for IPS, PSA, and quantifying structural uncertainty.
+* N-state PSMs and individual-level CTSTMs
+* Modeling patient heterogeneity 
+* Parameter estimates from either an R based model or from an external source
+* Sampling parameters of a statistical model fit with R using Monte Carlo methods or bootstrapping
+* Parameter uncertainty propagated with PSA
+* Performing cost-effectiveness analyses and representing decision uncertainty from PSAs
+* Simulation code written in `C++` to boost performance
 
 # Installation
-`hesim` can be installed from GitHub using `devtools`:
-
 ```r
-install.packages("devtools")
-library(devtools)
+# Install the most up to date development version from GitHub:
+# install.packages("devtools")
 devtools::install_github("InnovationValueInitiative/hesim")
-```
 
-It can then be loaded into `R`:
+# Install v0.1 (without economic modeling) from CRAN:
+install.packages("hesim")
 
-```r
-library(hesim)
+
 ```

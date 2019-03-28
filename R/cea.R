@@ -1,377 +1,352 @@
+#'  A cost-effectiveness object
+#'
+#' An object that summarizes simulated measures of clinical effectiveness and costs from a simulation model for use in a cost-effectiveness analysis.
+#'
+#' 
+#' @format 
+#' A list containing two elements:
+#' \itemize{
+#' \item{costs}{ Total (discounted) costs by category.}
+#' \item{qalys}{ (Discounted) quality-adjusted life-years.}
+#' }
+#' 
+#' @section Costs:
+#' The 'costs' \code{\link{data.table}} contains the following columns:
+#' \describe{
+#' \item{category}{The cost category.}
+#' \item{dr}{The discount rate.}
+#' \item{sample}{A randomly sampled parameter set from the probabilistic sensitivity analysis (PSA)}
+#' \item{strategy_id}{The treatment strategy ID.}
+#' \item{grp}{An optional column denoting a subgroup. If not included, it is assumed that a single subgroup is being analyzed.}
+#' \item{costs}{Costs.}
+#' }
+#' 
+#' @section Quality-adjusted life-years:
+#' The 'qalys' \code{\link{data.table}} contains the following columns:
+#' \describe{
+#' \item{dr}{The discount rate.}
+#' \item{sample}{A randomly sampled parameter set from the probabilistic sensitivity analysis (PSA)}
+#' \item{strategy_id}{The treatment strategy ID.}
+#' \item{grp}{An optional column denoting a subgroup. If not included, it is assumed that a single subgroup is being analyzed.}
+#' \item{qalys}{Quality-adjusted life-years}
+#' }
+#' 
+#' @name ce
+NULL
+
 #' Individualized cost-effectiveness analysis
 #'
-#' Conduct Bayesian cost-effectiveness analysis (e.g. summarize a probabilistic 
-#' sensitivity analysis) by subgroup.
+#' Conduct individualized cost-effectiveness analysis (ICEA) given output of an economic
+#' model. That is, summarize a probabilistic sensitivity analysis (PSA) by subgroup.
+#' \itemize{
+#'  \item \code{icea()} computes the probability that
+#' each treatment is most cost-effective, output for a cost-effectiveness acceptability frontier,
+#' the expected value of perfect information, and the net monetary benefit for each treatment.
+#' \item \code{icea_pw()} conducts pairwise ICEA by comparing strategies to a comparator. Computed
+#' quantities include the incremental cost-effectiveness ratio, the 
+#' incremental net monetary benefit, output for a cost-effectiveness plane,
+#' and output for a cost-effectiveness acceptability curve.
+#' }
+#'  
 #'
-#' @param x Matrix containing information on mean costs and effectiveness for each simulation.
-#' Should be in long form with unit of observation as the simulation and treatment strategy.
-#' Should have the following columns (
-#' sim = simulation number,
-#' strategy = treatment strategy,
-#' c = summary of cost for each simulation and treatment strategy
-#' e = summary of clinical effectiveness for each simulation and treatment strategy)
-#' @param k Vector of willingness to pay values
+#' @param x An object of simulation output characterizing the probability distribution
+#' of clinical effectiveness and costs. If the default method is used, then \code{x}
+#' must be a \code{data.frame} or \code{data.table} containing columns of
+#' mean costs and clinical effectiveness where each row denotes a randomly sampled parameter set
+#' and treatment strategy.
+#' @param k Vector of willingness to pay values.
 #' @param comparator Name of the comparator strategy in x.
-#' @param sim Name of column denoting simulation number. Default is "sim".
-#' @param strategy Name of column denoting treatment strategy. Default is "strategy".
-#' @param grp Name of column denoting subgroup. Default is "grp".
-#' @param e Name of column denoting clinical effectiveness. Default is "e".
-#' @param c Name of column denoting costs. Default is "c".
-#' @param custom_vars Character vector of variable names to use in creating a
-#' custom summary table. Table will contain means and 95\% credible intervals for
-#' each variable. Can contain e and c.
-#' @param custom_fun Function to apply to custom_vars to make custom table. If 
-#' \code{custom_vars} is not NULL and \code{custom_fun} is NULL, then returns the mean,
-#' 2.5\% quantile, and 97.5\% quantile for each variable in \code{custom_vars}.
-#' @return \code{icea} returns a list containing four data.tables:
+#' @param sample Character name of column from \code{x} denoting a randomly sampled parameter set.
+#' @param strategy Character name of column from \code{x} denoting treatment strategy.
+#' @param grp Character name of column from \code{x} denoting subgroup. If \code{NULL}, then
+#' it is assumed that there is only one group.
+#' @param e Character name of column from \code{x} denoting clinical effectiveness.
+#' @param c Character name of column from \code{x} denoting costs.
+#' @param ... Further arguments passed to or from other methods. Currently unused.
+#' @return \code{icea} returns a list containing four \code{data.table}s:
 #' 
 #' \describe{
-#'   \item{summary}{A data.table of the mean, 2.5\% quantile, and 97.5\% 
+#'   \item{summary}{A \code{data.table} of the mean, 2.5\% quantile, and 97.5\% 
 #'   quantile by strategy and group for clinical effectiveness and costs.}
 #'   \item{mce}{The probability that each strategy is the most effective treatment
-#'   for each group for the range of specified willingness to pay values.}
-#'   \item{evpi}{The expected value of perfect information by group for the range
-#'   of specified willingness to pay values.}
-#'    \item{nmb}{The mean, 2.5\% quantile, and 97.5\% quantile of (monetary) net benefits
+#'   for each group for the range of specified willingness to pay values. In addition,
+#'   the column \code{best} denotes the optimal strategy (i.e., the strategy with the
+#'   highest expected net monetary benefit), which can be used to plot the 
+#'   cost-effectiveness acceptability frontier (CEAF).}
+#'   \item{evpi}{The expected value of perfect information (EVPI) by group for the range
+#'   of specified willingness to pay values. The EVPI is computed by subtracting the expected net
+#'   monetary benefit given current information (i.e., the strategy with the highest
+#'   expected net monetary benefit) from the expected net monetary benefit given
+#'   perfect information.}
+#'    \item{nmb}{The mean, 2.5\% quantile, and 97.5\% quantile of net monetary benefits
 #'    for the range of specified willingness to pay values.}
 #' }
-#' In addition, if \code{custom_vars} is not NULL, \code{icea} returns \code{custom.table}, which is
-#'  a data.table containing summary statistics for each variable in \code{custom_vars}
-#'   by strategy and group.
 #' 
 #' \code{icea_pw} also returns a list containing four data.tables:
 #'  \describe{
 #'   \item{summary}{A data.table of the mean, 2.5\% quantile, and 97.5\% 
 #'   quantile by strategy and group for clinical effectiveness and costs.}
 #'   \item{delta}{Incremental effectiveness and incremental cost for each simulated
-#'   parameter set by strategy and group. Can be used to plot a cost-effectiveness plane. 
-#'   Also returns the difference between each treatment strategy and the comparator for each 
-#'   variable in \code{custom_vars} if \code{custom_vars} is not NULL.}
+#'   parameter set by strategy and group. Can be used to plot a cost-effectiveness plane. }
 #'   \item{ceac}{Values needed to plot a cost-effectiveness acceptability curve by
-#'   group. In other words, the probability that each strategy is more cost-effective than
+#'   group. The CEAC plots the probability that each strategy is more cost-effective than
 #'   the comparator for the specified willingness to pay values.}
-#'    \item{inmb}{The mean, 2.5\% quantile, and 97.5\% quantile of (monetary) 
-#'    incremental net benefits for the range of specified willingness to pay values.}
+#'    \item{inmb}{The mean, 2.5\% quantile, and 97.5\% quantile of
+#'    incremental net monetary benefits for the range of specified willingness to pay values.}
 #' }
-#' If \code{custom_vars} is not NULL, also returns \code{custom.table}, which is
-#'  a data.table containing summary statistics for the values of each variable returned
-#'   in \code{delta} by strategy and group.
 #' @name icea
 #' @examples
 #' # simulation output
-#'nsims <- 100
-#'sim <- data.frame(sim = rep(seq(nsims), 4),
-#'                c = c(rlnorm(nsims, 5, .1), rlnorm(nsims, 5, .1),
-#'                       rlnorm(nsims, 11, .1), rlnorm(nsims, 11, .1)),
-#'                e = c(rnorm(nsims, 8, .2), rnorm(nsims, 8.5, .1),
-#'                      rnorm(nsims, 11, .6), rnorm(nsims, 11.5, .6)),
-#'                strategy = rep(paste0("Strategy ", seq(1, 2)),
-#'                              each = nsims * 2),
-#'                grp = rep(rep(c("Group 1", "Group 2"),
-#'                              each = nsims), 2)
+#' n_samples <- 100
+#' sim <- data.frame(sample = rep(seq(n_samples), 4),
+#'                   c = c(rlnorm(n_samples, 5, .1), rlnorm(n_samples, 5, .1),
+#'                         rlnorm(n_samples, 11, .1), rlnorm(n_samples, 11, .1)),
+#'                   e = c(rnorm(n_samples, 8, .2), rnorm(n_samples, 8.5, .1),
+#'                         rnorm(n_samples, 11, .6), rnorm(n_samples, 11.5, .6)),
+#'                   strategy = rep(paste0("Strategy ", seq(1, 2)),
+#'                                  each = n_samples * 2),
+#'                   grp = rep(rep(c("Group 1", "Group 2"),
+#'                             each = n_samples), 2)
 #')
 #'
 #' # icea
-#'icea.dt <- icea(sim, k = seq(0, 200000, 500), sim = "sim", strategy = "strategy",
-#'  grp = "grp", e = "e", c = "c")
-#' names(icea.dt)
-#' # the probability that each strategy is the most cost-effective 
+#' icea <- icea(sim, k = seq(0, 200000, 500), sample = "sample", strategy = "strategy",
+#'              grp = "grp", e = "e", c = "c")
+#' names(icea)
+#' # The probability that each strategy is the most cost-effective 
 #' # in each group with a willingness to pay of 20,000
 #' library("data.table")
-#' icea.dt$mce[k == 20000]
+#' icea$mce[k == 20000]
 #' 
 #' # icea_pw
-#'icea.pw.dt <-  icea_pw(sim,  k = seq(0, 200000, 500), comparator = "Strategy 1",
-#'                       sim = "sim", strategy = "strategy", e = "e", c = "c")
-#'names(icea.pw.dt)
-#'# cost-effectiveness acceptability curve
-#'library("ggplot2")
-#'ggplot2::ggplot(icea.pw.dt$ceac[k < 50000], aes_string(x = "k", y = "prob")) +
-#'  geom_line() + facet_wrap(~grp) + xlab("Willingess to pay") +
-#'  ylab("Probability Strategy 2 is more cost-effective than Strategy 1") +
-#'  theme(legend.position = "bottom") 
+#' icea_pw <-  icea_pw(sim,  k = seq(0, 200000, 500), comparator = "Strategy 1",
+#'                     sample = "sample", strategy = "strategy", grp = "grp",
+#'                      e = "e", c = "c")
+#' names(icea_pw)
+#' # cost-effectiveness acceptability curve
+#' head(icea_pw$ceac[k >= 20000])
+#' icer_tbl(icea_pw)
 #' @export
-icea <- function(x, k, sim = "sim", strategy = "strategy", grp = "grp", e = "e", c = "c",
-                custom_vars = NULL, custom_fun = NULL){
+icea <- function(x, ...) {
+  UseMethod("icea")
+}
+
+#' @export
+#' @rdname icea
+icea_pw <- function(x, ...) {
+  UseMethod("icea_pw")
+}
+
+check_grp <- function(x, grp){
+  if (is.null(grp)){
+    grp <- "grp"
+    if ("grp" %in% colnames(x)){
+      x[, ("grp") := NULL]
+    }
+    x[, (grp) := "1"] 
+  } 
+  return(grp)
+}
+
+#' @export
+#' @rdname icea
+icea.default <- function(x, k = seq(0, 200000, 500), sample, strategy, 
+                         grp = NULL, e, c, ...){
   if (!is.data.table(x)){
     x <- data.table(x)
   }
-
-  nsims <- length(unique(x[[sim]]))
-  nstrategies <- length(unique(x[[strategy]]))
-  ngrps <- length(unique(x[[grp]]))
-  setorderv(x, c(grp, sim, strategy))
+  x <- copy(x)
+  grp <- check_grp(x, grp)
+  n_samples <- length(unique(x[[sample]]))
+  n_strategies <- length(unique(x[[strategy]]))
+  n_grps <- length(unique(x[[grp]]))
+  setorderv(x, c(grp, sample, strategy))
 
   # estimates
-  nmb <- nmb_summary(x, k, sim, strategy, grp, e, c)
-  mce <- mce(x, k, strategy, grp, e, c, nsims, nstrategies, ngrps)
-  evpi <- evpi(x, k, sim, strategy, grp, e, c, nsims, nstrategies, ngrps, nmb)
-  cea.table <- cea_table(x, sim, strategy, grp, e, c, ICER = FALSE)
-  setnames(cea.table, 
+  nmb <- nmb_summary(x, k, strategy, grp, e, c)
+  enmb_best <- enmb_best(nmb, strategy, grp)
+  mce <- mce(x, k, strategy, grp, e, c, n_samples, n_strategies, n_grps, enmb_best$row)
+  enmb_best[, row := NULL]
+  evpi <- evpi(x, k, strategy, grp, e, c, n_samples, n_strategies, n_grps, enmb_best)
+  summary_table <- cea_table(x, strategy, grp, e, c)
+  setnames(summary_table, 
            c(paste0(e, c("_mean", "_lower", "_upper")),
             paste0(c, c("_mean", "_lower", "_upper"))),
            c(paste0("e", c("_mean", "_lower", "_upper")),
              paste0("c", c("_mean", "_lower", "_upper")))
 )
-  l <- list(summary = cea.table, mce = mce, evpi = evpi, nmb = nmb)
-  if (!is.null(custom_vars)){
-    custom.table <- custom_table(x, strategy, grp, custom_vars, custom_fun)
-    l <- c(l, list(custom.table = custom.table))
-  }
+  l <- list(summary = summary_table, mce = mce, evpi = evpi, nmb = nmb)
+  class(l) <- "icea"
+  attr(l, "strategy") <- strategy
+  attr(l, "grp") <- grp  
   return(l)
 }
 
 #' @export
 #' @rdname icea
-icea_pw <- function(x, k, comparator, sim = "sim", strategy = "strategy", grp = "grp", e = "e", c = "c",
-                   custom_vars = NULL, custom_fun = NULL){
+icea_pw.default <- function(x, k = seq(0, 200000, 500), comparator, 
+                            sample, strategy, 
+                            grp = NULL, e, c, ...){
   if (!is.data.table(x)){
     x <- data.table(x)
-  }
-  setorderv(x, c(grp, strategy, sim))
+  } 
+  x <- copy(x)
+  grp <- check_grp(x, grp)
+  setorderv(x, c(grp, strategy, sample))
   if (!comparator %in% unique(x[[strategy]])){
-    stop("Chosen comparator strategy is not in x")
+    stop("Chosen comparator strategy is not in 'x'.",
+         call. = FALSE)
   }
 
   # treatment strategies vs comparators
-  indx.comparator <- which(x[[strategy]] == comparator)
-  indx.treat <- which(x[[strategy]] != comparator)
-  sim_comparator <- x[indx.comparator]
-  sim_treat <- x[indx.treat]
-  nstrategies <- length(unique(sim_treat[[strategy]]))
-  nsims <- length(unique(sim_treat[[sim]]))
-  ngrps <- length(unique(sim_treat[[grp]]))
+  indx_comparator <- which(x[[strategy]] == comparator)
+  indx_treat <- which(x[[strategy]] != comparator)
+  sim_comparator <- x[indx_comparator]
+  sim_treat <- x[indx_treat]
+  n_strategies <- length(unique(sim_treat[[strategy]]))
+  n_samples <- length(unique(sim_treat[[sample]]))
+  n_grps <- length(unique(sim_treat[[grp]]))
 
   # estimates
-  if (!is.null(custom_vars)){
-    outcomes <- c(e, c, custom_vars[!custom_vars %in% c(e, c)])
-    delta <- calc_incr_effect(sim_treat, sim_comparator, sim, strategy, grp, outcomes, 
-                              nsims, nstrategies, ngrps)
-  } else{
-    outcomes <- c(e, c)
-    delta <- calc_incr_effect(sim_treat, sim_comparator, sim, strategy, grp, outcomes, 
-                              nsims, nstrategies, ngrps)
-  }
+  outcomes <- c(e, c)
+  delta <- calc_incr_effect(sim_treat, sim_comparator, sample, strategy, grp, outcomes, 
+                              n_samples, n_strategies, n_grps)
   setnames(delta, paste0("i", e), "ie")
   setnames(delta, paste0("i", c), "ic")
-  ceac <- ceac(delta, k, sim, strategy, grp, e = "ie", c = "ic",
-               nsims, nstrategies, ngrps)
-  inmb <- inmb_summary(delta, k, sim, strategy, grp, e = "ie", c = "ic")
-  cea.table <- cea_table(delta, sim, strategy, grp, e = "ie", c = "ic",
-                         ICER = TRUE)
-  l <- list(summary = cea.table, delta = delta, ceac = ceac, inmb = inmb)
-  if (!is.null(custom_vars)){
-    if (any(custom_vars == e)){
-        custom_vars[custom_vars == e] <- "e"
-    }
-    if (any(custom_vars == c)){
-      custom_vars[custom_vars == c] <- "c"
-    }
-    custom.table <- custom_table(delta, strategy, grp, paste0("i", custom_vars),
-                                 custom_fun)
-    l <- c(l, list(custom.table = custom.table))
+  ceac <- ceac(delta, k, strategy, grp, e = "ie", c = "ic",
+               n_samples, n_strategies, n_grps)
+  inmb <- inmb_summary(delta, k, strategy, grp, e = "ie", c = "ic")
+  summary_table <- cea_table(delta, strategy, grp, e = "ie", c = "ic", icer = TRUE)
+  l <- list(summary = summary_table, delta = delta, ceac = ceac, inmb = inmb)
+  class(l) <- "icea_pw"
+  attr(l, "strategy") <- strategy
+  attr(l, "grp") <- grp
+  attr(l, "comparator") <- comparator
+  if (is.factor(x[[strategy]])){
+    comp_pos <- which(levels(x[[strategy]]) == comparator)
+  } else {
+    comp_pos <- which(sort(unique(x[[strategy]])) == comparator)
   }
+  attr(l, "comparator_pos") <- comp_pos  
   return(l)
 }
 
-#' Incremental treatment effect
-#'
-#' Calculate incremental effect of all treatment strategies on outcome variables from 
-#' probabilistic sensitivity analysis relative to comparator.
-#'
-#' @param x Matrix containing information on outcome variables for each simulation and strategy.
-#' @param comparator Name of comparator strategy.
-#' @param sim Name of column denoting simulation number.
-#' @param strategy Name of column denoting treatment strategy.
-#' @param grp Name of column denoting subgroup.
-#' @param outcomes Name of columns to calculate incremental changes for.
-#' @return A data.table containing the differences in the values of each variable 
-#' specified in outcomes between each treatment strategy and the 
-#' comparator. It is the same output generated
-#' in \code{delta} from \code{icea_pw}.
-#'
-#' @examples 
-#'# simulation output
-#'nsims <- 100
-#'sim <- data.frame(sim = rep(seq(nsims), 4),
-#'              c = c(rlnorm(nsims, 5, .1), rlnorm(nsims, 5, .1),
-#'                     rlnorm(nsims, 11, .1), rlnorm(nsims, 11, .1)),
-#'              e = c(rnorm(nsims, 8, .2), rnorm(nsims, 8.5, .1),
-#'                    rnorm(nsims, 11, .6), rnorm(nsims, 11.5, .6)),
-#'              strategy = rep(paste0("Strategy ", seq(1, 2)),
-#'                            each = nsims * 2),
-#'              grp = rep(rep(c("Group 1", "Group 2"),
-#'                            each = nsims), 2)
-#')
-#'# calculate incremental effect of Strategy 2 relative to Strategy 1 by group
-#'incr.effect <- incr_effect(sim, comparator = "Strategy 1", sim = "sim",
-#'                         strategy = "strategy", grp = "grp", outcomes = c("c", "e"))
-#'head(incr.effect)
 #' @export
-incr_effect <- function(x, comparator, sim, strategy, grp, outcomes){
-  x <- data.table(x)
-  if (!comparator %in% unique(x[[strategy]])){
-    stop("Chosen comparator strategy not in x")
-  }
-  indx.comparator <- which(x[[strategy]] == comparator)
-  indx.treat <- which(x[[strategy]] != comparator)
-  x_comparator <- x[indx.comparator]
-  x_treat <- x[indx.treat]
-  nstrategies <- length(unique(x_treat[[strategy]]))
-  nsims <- length(unique(x_treat[[sim]]))
-  ngrps <- length(unique(x_treat[[grp]]))
-  setorderv(x_treat, c(strategy, sim))
-  setorderv(x_comparator, c(strategy, sim))
-
-  # estimation
-  return(calc_incr_effect(x_treat, x_comparator, sim, strategy, grp, outcomes, 
-                          nsims, nstrategies, ngrps))
+#' @rdname icea
+#' @param dr_qalys Discount rate for quality-adjusted life-years (QALYs).
+#' @param dr_costs Discount rate for costs.
+icea.ce <- function(x, k = seq(0, 200000, 500), dr_qalys, dr_costs, ...){
+  category <- dr <- NULL
+  sim <- cbind(x$costs[category == "total" & dr == dr_costs,
+                       c("sample", "strategy_id", "costs")],
+               x$qalys[dr == dr_qalys, "qalys", with = FALSE])
+  res <- icea(sim, k = k, sample = "sample", strategy = "strategy_id",
+              e = "qalys", c = "costs")
+  return(res)
 }
 
-
-#' Custom CEA summary table
-#'
-#' Custom table summarizing outcomes from probabilistic sensitivity analysis.
-#'
-#' @param x Matrix containing information on outcome variables for each simulation and strategy.
-#' @param strategy Name of column denoting treatment strategy.
-#' @param grp Name of column denoting subgroup
-#' @param custom_vars Name of custom variables to calculate summary statistic for.
-#' @param FUN summary statistic function.
-#' @return A data.table of summary statistics for each variable specified in 
-#' \code{custom_vars}. By default, returns the mean, 2.5\%, and 97.5\% quantile of
-#' each variable. Different summary statistics can be calculated using FUN. 
-#' This function is used in \code{icea} and \code{icea_pw} to create the
-#'  \code{custom.table} output.
-#'
-#'@examples
-#'# simulation output
-#'nsims <- 100
-#'sim <- data.frame(sim = rep(seq(nsims), 4),
-#'              c = c(rlnorm(nsims, 5, .1), rlnorm(nsims, 5, .1),
-#'                     rlnorm(nsims, 11, .1), rlnorm(nsims, 11, .1)),
-#'              e = c(rnorm(nsims, 8, .2), rnorm(nsims, 8.5, .1),
-#'                    rnorm(nsims, 11, .6), rnorm(nsims, 11.5, .6)),
-#'              strategy = rep(paste0("Strategy ", seq(1, 2)),
-#'                            each = nsims * 2),
-#'              grp = rep(rep(c("Group 1", "Group 2"),
-#'                            each = nsims), 2)
-#')
-#'
-#'# Custom summary table
-#'custom.fun <- function(x) list(mean = mean(x), median = median(x),
-#'                              quantile(x, c(.025, .975)))
-#'custom_table(sim, strategy = "strategy", grp = "grp",
-#'            custom_vars = "e", FUN = custom.fun)
 #' @export
-custom_table <- function(x, strategy, grp, custom_vars, FUN = NULL){
-  x <- data.table(x)
-  if (is.null(FUN)){
-    FUN <- function (x){
-      return(list(mean = mean(x), quant = stats::quantile(x, c(.025, .975))))
-    }
-  }
-  ret <- dt_agg(x, FUN = FUN, by = c(strategy, grp), custom_vars)
-  return(ret)
-}
-
-# incremental change calculation
-calc_incr_effect <- function(x_treat, x_comparator, sim, strategy, grp, outcomes,
-                             nsims, nstrategies, ngrps){
-  outcomes.mat <- matrix(NA, nrow = nrow(x_treat), ncol = length(outcomes))
-  colnames(outcomes.mat) <- paste0("i", outcomes)
-  for (i in 1:length(outcomes)){
-    outcomes.mat[, i] <- incr_effectC(x_treat[[outcomes[i]]],
-                                      x_comparator[[outcomes[i]]],
-                                      nsims, nstrategies, ngrps)
-  }
-  dt <- data.table(x_treat[[sim]], x_treat[[strategy]], x_treat[[grp]], outcomes.mat)
-  setnames(dt, c(sim, strategy, grp, paste0("i", outcomes)))
+#' @rdname icea
+icea_pw.ce <- function(x, k = seq(0, 200000, 500), comparator, dr_qalys, dr_costs, ...){
+  category <- dr <- NULL
+  sim <- cbind(x$costs[category == "total" & dr == dr_costs,
+                       c("sample", "strategy_id", "costs")],
+               x$qalys[dr == dr_qalys, "qalys", with = FALSE])
+  res <- icea_pw(sim, k = k, comparator = comparator, sample = "sample",
+                 strategy = "strategy_id",
+                 e = "qalys", c = "costs")
+  return(res)
 }
 
 # Probability of being most cost-effective
-mce <- function(x, k, strategy, grp, e, c, nsims, nstrategies, ngrps){
-  krep <- rep(k, each = nstrategies * ngrps)
-  strategyrep <- rep(unique(x[[strategy]]), times = length(k) * ngrps)
-  grprep <- rep(rep(unique(x[[grp]]), each = nstrategies), length(k))
-  prob.vec <- mceC(k, x[[e]], x[[c]], nsims, nstrategies, ngrps)
-  prob <- data.table(krep, strategyrep, grprep, prob.vec)
+mce <- function(x, k, strategy, grp, e, c, n_samples, n_strategies, n_grps,
+                best_row){
+  k_rep <- rep(k, each = n_strategies * n_grps)
+  strategy_rep <- rep(unique(x[[strategy]]), times = length(k) * n_grps)
+  grp_rep <- rep(rep(unique(x[[grp]]), each = n_strategies), length(k))
+  prob_vec <- C_mce(k, x[[e]], x[[c]], n_samples, n_strategies, n_grps)
+  prob <- data.table(k_rep, strategy_rep, grp_rep, prob_vec)
   setnames(prob, c("k", strategy, grp, "prob"))
+  prob[, ("best") := 0]
+  set(prob, best_row, "best", 1)
+  setcolorder(prob, c("k", strategy, grp, "best", "prob"))
   return(prob)
 }
 
 # Cost effectiveness acceptability curve
-ceac <- function(delta, k, sim, strategy, grp, e, c, nsims, nstrategies, ngrps){
-  krep <- rep(k, each = nstrategies * ngrps)
-  strategyrep <- rep(unique(delta[[strategy]]), times = length(k) * ngrps)
-  grprep <- rep(rep(unique(delta[[grp]]), each = nstrategies), length(k))
-  prob.vec <- ceacC(k, delta[[e]], delta[[c]],
-                          nsims, nstrategies, ngrps)
-  prob <- data.table(krep, strategyrep, grprep, prob.vec)
+ceac <- function(delta, k, strategy, grp, e, c, n_samples, n_strategies, n_grps){
+  k_rep <- rep(k, each = n_strategies * n_grps)
+  strategy_rep <- rep(unique(delta[[strategy]]), times = length(k) * n_grps)
+  grp_rep <- rep(rep(unique(delta[[grp]]), each = n_strategies), length(k))
+  prob_vec <- C_ceac(k, delta[[e]], delta[[c]],
+                          n_samples, n_strategies, n_grps)
+  prob <- data.table(k_rep, strategy_rep, grp_rep, prob_vec)
   setnames(prob, c("k", strategy, grp, "prob"))
   return(prob)
 }
 
 # net benefits summary statistics
-nmb_summary <- function(x, k, sim, strategy, grp, e, c){
-  x2 = copy(x)
-  setnames(x2, c(e, c), c("e", "c"))
-  m <- x2[, list(e_mean = mean(e), c_mean = mean(c),
-             e_lower = stats::quantile(e, .025), 
-             e_upper = stats::quantile(e, .975),
-             c_lower = stats::quantile(c, .025),
-             c_upper = stats::quantile(c, .975)), by = c(strategy, grp)]
-  enmb <- lnmb <- unmb <- matrix(NA, nrow = length(k), ncol = nrow(m))
-  for (i in 1:nrow(m)){
-    enmb[, i] <- k * m[["e_mean"]][i] - m[["c_mean"]][i]
-    lnmb[, i] <- k * m[["e_lower"]][i] - m[["c_lower"]][i]
-    unmb[, i] <- k * m[["e_upper"]][i] - m[["c_upper"]][i]
-  }
-  nmb <- data.table(rep(m[[strategy]], each = length(k)), rep(m[[grp]], each = length(k)),
-                    rep(k, nrow(m)), c(enmb), c(lnmb), c(unmb))
-  setnames(nmb, c(strategy, grp, "k", "enmb", "lnmb", "unmb"))
-  return(nmb)
+nmb_summary <- function(x, k, strategy, grp, e, c){
+  nmb <- NULL # Avoid CRAN warning for global undefined variable
+  nmb_dt <- data.table(strategy = rep(x[[strategy]], times = length(k)),
+                       grp = rep(x[[grp]], times = length(k)),
+                       k = rep(k, each = nrow(x)),
+                       e = rep(x[[e]], times = length(k)),
+                       c = rep(x[[c]], times = length(k)))
+  nmb_dt[, "nmb" := k * e - c]
+  nmb_summary <- nmb_dt[, list("enmb" = mean(nmb),
+                               "lnmb" = stats::quantile(nmb, .025),
+                               "unmb" = stats::quantile(nmb, .975)),
+                           by = c("strategy", "grp", "k")]
+  setnames(nmb_summary, old = c("strategy", "grp"),  new = c(strategy, grp))
+  return(nmb_summary)
 }
 
 # incremental benefit summary statistics
-inmb_summary <- function(ix, k, sim, strategy, grp, e, c){
-  inmb <- nmb_summary(ix, k, sim, strategy, grp, e, c)
+inmb_summary <- function(ix, k, strategy, grp, e, c){
+  inmb <- nmb_summary(ix, k, strategy, grp, e, c)
   setnames(inmb, colnames(inmb), c(strategy, grp, "k", "einmb", "linmb", "uinmb"))
   return(inmb)
 }
 
+# Compute optimal strategy and associated ENMB
+enmb_best <- function(nmb, strategy, grp){
+  enmb <- NULL
+  ind <- nmb[, .I[which.max(enmb)], by = c("k", grp)]$V1
+  res <- nmb[ind, c(strategy, grp, "k", "enmb"), with = FALSE]
+  res$row <- ind
+  setnames(res, strategy, "best")
+  setnames(res, "enmb", "enmb_best")
+  setcolorder(res, c(grp, "k", "enmb_best", "best"))
+  return(res)
+}
+
 # Expected value of perfect information
-evpi <- function(x, k, sim, strategy, grp, e, c, nsims, nstrategies, ngrps, nmb){
-
-  # Choose treatment by maximum expected benefit
-  x.nmb = copy(nmb)
-  f <- stats::as.formula(paste0("k", "+", grp, "~", strategy))
-  x.enmb <- dcast(x.nmb, f, value.var = "enmb")
-  mu <- rowmaxC(as.matrix(x.enmb[, -c(1:2), with = FALSE]))
-  mu.ind <- c(rowmax_indC(as.matrix(x.enmb[, -c(1:2), with = FALSE]))) + 1
-
+evpi <- function(x, k, strategy, grp, e, c, 
+                 n_samples, n_strategies, n_grps, enmb){
+  evpi <- enmbpi <- enmb_best <- NULL
+  
   # calculate expected value of perfect information
-  Vstar <- VstarC(k, x[[e]], x[[c]], nsims, nstrategies, ngrps)
-  evpi <- Vstar - c(mu)
-  dt <- data.table(k = rep(k, each = ngrps),
-                    grp = rep(unique(x[[grp]]), times = length(k)),
-                    evpi = evpi, enmbpi = Vstar, enmb = c(mu), best = mu.ind)
-  setnames(dt, "grp", grp)
-  return(dt)
+  enmb$enmbpi <-  C_enmbpi(k, x[[e]], x[[c]], n_samples, n_strategies, n_grps)
+  enmb[, evpi := enmbpi - enmb_best]
+  setnames(enmb, "enmb_best", "enmbci")
+  setcolorder(enmb, c(grp, "k", "best", "enmbci", "enmbpi", "evpi"))
+  return(enmb)
 }
 
 # CEA summary table
-cea_table <- function(x, sim, strategy, grp, e, c, ICER = FALSE){
-    FUN <- function (x){
-      return(list(mean = mean(x), quant = stats::quantile(x, c(.025, .975))))
-    }
-  ret <- dt_agg(x, FUN = FUN, by = c(strategy, grp), c(e, c))
+cea_table <- function(x, strategy, grp, e, c, icer = FALSE){
+  FUN <- function (x){
+    return(list(mean = mean(x), quant = stats::quantile(x, c(.025, .975))))
+  }
+  ret <- x[, as.list(unlist(lapply(.SD, FUN))),
+            by = c(strategy, grp), .SDcols = c(e, c)]
   setnames(ret, colnames(ret), c(strategy, grp,
                                  paste0(e, c("_mean", "_lower", "_upper")),
                                  paste0(c, c("_mean", "_lower", "_upper"))))
-  ie_mean <- paste0(e, "_mean")
-  ic_mean <- paste0(c, "_mean")
-  if (ICER == TRUE){
+  if (icer == TRUE){
+    ie_mean <- paste0(e, "_mean")
+    ic_mean <- paste0(c, "_mean")
     ret$icer <- ret[, ic_mean, with = FALSE]/ret[, ie_mean, with = FALSE]
     ret$icer <- ifelse(ret[, ic_mean, with = FALSE] < 0 & ret[, ie_mean, with = FALSE] >= 0, "Dominates",
                        ret$icer)
@@ -381,13 +356,169 @@ cea_table <- function(x, sim, strategy, grp, e, c, ICER = FALSE){
   return(ret)
 }
 
-# Helper functions
-dt_agg <- function(x, FUN, by, sdcols){
-  y <- x[, as.list(unlist(lapply(.SD, FUN))),
-            by = by, .SDcols = sdcols]
-  return(y)
+format_costs <- function(x, digits){
+  formatC(x, format = "f", digits = digits, big.mark = ",")
 }
 
-EVAL = function(...) {
-  eval(parse(text=paste0(...)),envir=parent.frame(2))
+format_qalys <- function(x, digits){
+  formatC(x, format = "f", digits = digits)
 }
+
+format_cri <- function(est, lower, upper, costs = TRUE, digits){
+  if (costs){
+    lower <- format_costs(lower, digits = digits)
+    upper <- format_costs(upper, digits = digits)
+  } else{
+    lower <- format_qalys(lower, digits = digits)
+    upper <- format_qalys(upper, digits = digits)
+  }
+  paste0(est, " (",lower, ", ", upper, ")")
+}
+
+#' ICER table
+#'
+#' Generate a table of incremental cost-effectiveness ratios given output from 
+#' \code{\link{icea_pw}}.
+#'
+#' @param x An object of class "icea_pw" returned by \code{\link{icea_pw}}.
+#' @param k Willingness to pay.
+#' @param cri If \code{TRUE}, credible intervals are computed; otherwise 
+#' they are not.
+#' @param prob A numeric scalar in the interval \code{(0,1)} giving the credible interval.
+#' Default is 0.95 for a 95 percent credible interval. 
+#' @param digits_qalys Number of digits to use to report QALYs.
+#' @param digits_costs Number of digits to use to report costs.
+#' @param output Should output be a \code{data.table} or a list of matrices for
+#' each group.
+#' @param rownames Row names for matrices when \code{output = "matrix"}.
+#' @param colnames Column names for matrices when \code{output = "matrix"}.
+#' @param drop If \code{TRUE}, then the result is coerced to the lowest possible dimension. 
+#' Relevant if \code{output = "matrix"} and there is one group, in which case a single
+#' matrix will be returned if \code{drop = TRUE} and a list of length 1 will be returned
+#' if \code{drop = FALSE}.
+#' @seealso \code{\link{icea_pw}}
+#' @return If \code{output = "matrix"}, then a list of matrices (or a matrix if
+#' \code{drop = TRUE}) reporting incremental cost-effectiveness ratios (ICERs)
+#' by group. Specifically, each matrix contains five rows for: (i) 
+#' incremental quality-adjusted life-years (QALYs), (ii) incremental costs,
+#' (iii) the incremental net monetary benefit (NMB), (iv) the ICER, 
+#' and (v) a conclusion stating whether each strategy is cost-effective relative
+#'  to a comparator. The number of columns is equal to the
+#' number of strategies (including the comparator).
+#' 
+#' If \code{output = "data.table"}, then the results are reported as a \code{data.table},
+#' with one row for each strategy and group combination.
+#' @export
+icer_tbl <- function(x, k = 50000, cri = TRUE, prob = 0.95, 
+                     digits_qalys = 2, 
+                     digits_costs = 0, output = c("matrix", "data.table"),
+                     rownames = NULL, colnames = NULL,
+                     drop = TRUE){
+  if (!inherits(x, "icea_pw")){
+    stop("'x' must be an object of class 'icea_pw'",
+         call. = FALSE)
+  }
+  if (prob > 1 | prob < 0){
+    stop("'prob' must be in the interval (0,1)",
+         call. = FALSE)
+  }
+  
+  strategy <- attributes(x)$strategy
+  grp <- attributes(x)$grp
+  output <- match.arg(output)
+  tbl <- copy(x$summary)
+  tbl[, "icer" := get("ic_mean")/get("ie_mean")]  
+  tbl[, "inmb_numeric" := k * get("ie_mean") - get("ic_mean")]
+  
+  # Formatting
+  tbl[, "iqalys" := format_qalys(get("ie_mean"), digits = digits_qalys)]
+  tbl[, "icosts" := format_costs(get("ic_mean"), digits = digits_costs)]
+  tbl[, "icer" := format_costs(get("icer"), digits = digits_costs)]
+  tbl[, "icer" := ifelse(get("ic_mean") < 0 & get("ie_mean") >= 0, "Dominates", get("icer"))]
+  tbl[, "icer" := ifelse(get("ic_mean") > 0 & get("ie_mean") <= 0, "Dominated", get("icer"))]
+  tbl[, "inmb" := format_costs(get("inmb_numeric"), digits = digits_costs)]
+  
+  if(cri){
+    prob_lower <- (1 - prob)/2
+    prob_upper <- 1 - prob_lower
+    x$delta[, "inmb" := k * get("ie") - get("ic")]
+    if (prob == 0.95){
+      tbl[, "iqalys" := format_cri(get("iqalys"), get("ie_lower"), get("ie_upper"), 
+                                   costs = FALSE,
+                                  digits = digits_qalys)]
+      tbl[, "icosts" := format_cri(get("icosts"), get("ic_lower"), get("ic_upper"),
+                                 costs = TRUE,
+                                  digits = digits_costs)]
+      inmb_dt <- x$delta[, list(mean = mean(get("inmb")),
+                          lower = stats::quantile(get("inmb"), prob_lower),
+                          upper = stats::quantile(get("inmb"), prob_upper)),
+                      by = c(strategy, grp)]
+      tbl[, "inmb" := format_cri(get("inmb"), inmb_dt$lower, inmb_dt$upper,
+                                 costs = TRUE,
+                                digits = digits_costs)]
+    } else {
+      cri_dt <- x$delta[, list(iqalys_lower = stats::quantile(get("ie"), prob_lower),
+                               iqalys_upper = stats::quantile(get("ie"), prob_upper),
+                               icosts_lower = stats::quantile(get("ic"), prob_lower),
+                               icosts_upper = stats::quantile(get("ic"), prob_upper),
+                               inmb_lower = stats::quantile(get("inmb"), prob_lower),
+                               inmb_upper = stats::quantile(get("inmb"), prob_upper)),
+                      by = c(strategy, grp)]
+      tbl[, "iqalys" := format_cri(get("iqalys"), cri_dt$iqalys_lower, 
+                                 cri_dt$iqalys_upper, costs = FALSE,
+                                  digits = digits_qalys)]
+      tbl[, "icosts" := format_cri(get("icosts"), cri_dt$icosts_lower, 
+                                 cri_dt$icosts_upper, costs = TRUE,
+                                  digits = digits_costs)]      
+      tbl[, "inmb" := format_cri(get("inmb"), cri_dt$inmb_lower, 
+                                 cri_dt$inmb_upper, costs = TRUE,
+                                digits = digits_costs)]       
+    }
+    x$delta[, "inmb" := NULL]
+  } # end credible interval calculations
+  tbl[, "conclusion" := ifelse(get("inmb_numeric") >= 0,
+                            "Cost-effective", "Not cost-effective")]
+  tbl <- tbl[, c(strategy, grp, "iqalys", "icosts", "inmb", "icer", "conclusion"),
+             with = FALSE]
+  
+  if (output == "matrix"){
+    tbl_list <- split(tbl, by = grp)
+    mat_list <- vector(mode = "list", length = length(tbl_list))
+    names(mat_list) <- names(tbl_list)
+    n_strategies <- length(unique(tbl[[strategy]]))
+    mat <- matrix(NA, nrow = 5, ncol = n_strategies + 1)
+    if(is.null(rownames)){
+      rownames(mat) <- c("Incremental QALYs", "Incremental costs", 
+                          "Incremental NMB", "ICER", "Conclusion")
+    } else{
+      rownames(mat) <- rownames
+    }
+    comp_pos <- attributes(x)$comparator_pos
+    if (is.null(colnames)){
+      strategy_names <- rep(NA, ncol(mat))
+      strategy_names[comp_pos] <- attributes(x)$comparator
+      strategy_names[-comp_pos] <- as.character(tbl_list[[1]][[strategy]])
+      colnames(mat) <- strategy_names
+    } else{
+      colnames(mat) <- colnames
+    }
+    for (i in 1:length(mat_list)){
+      mat[1, -comp_pos] <- tbl_list[[i]]$iqalys
+      mat[2, -comp_pos] <- tbl_list[[i]]$icosts
+      mat[3, -comp_pos] <- tbl_list[[i]]$inmb
+      mat[4, -comp_pos] <- tbl_list[[i]]$icer
+      mat[5, -comp_pos] <- tbl_list[[i]]$conclusion
+      mat[, comp_pos] <- "-"
+      mat_list[[i]] <- mat 
+    }
+    if (drop){
+      if(length(mat_list) == 1){
+        mat_list <- mat_list[[1]]
+      }
+    }
+    return(mat_list)
+  } else{
+    return(tbl)
+  }
+}
+
