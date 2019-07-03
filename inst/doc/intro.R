@@ -1,6 +1,6 @@
 ## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm <- c("N-state partitioned survival model (PSM)", "[Psm](../reference/Psm.html)")
-ictstm <- c("Individual-level continuous time state transition model (iCTSTM)", "[IndivCtstm](../reference/IndivCtstm.html)")
+psm <- c("N-state partitioned survival model (PSM)", "[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)")
+ictstm <- c("Individual-level continuous time state transition model (iCTSTM)", "[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)")
 tbl <- rbind(psm, ictstm)
 colnames(tbl) <- c("Economic model", "R6 class")
 knitr::kable(tbl, row.names = FALSE)
@@ -31,8 +31,8 @@ hesim_dat <- hesim_data(strategies = strategies,
 print(hesim_dat)
 
 ## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm <- c("[Psm](../reference/Psm.html)", "Independent survival models", "[params_surv_list](../reference/params_surv_list.html)", "[hesim::flexsurvreg_list](../reference/flexsurvreg_list.html)")
-ictstm <- c("[IndivCtstm](../reference/IndivCtstm.html)", "Multi-state model", "[params_surv](../reference/params_surv.html) or [params_surv_list](../reference/params_surv_list.html)", "[flexsurv::flexsurvreg](https://www.rdocumentation.org/packages/flexsurv/versions/1.0.0/topics/flexsurvreg) or [hesim::flexsurvreg_list](../reference/flexsurvreg_list.html)")
+psm <- c("[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)", "Independent survival models", "[params_surv_list](https://hesim-dev.github.io/hesim/reference/params_surv_list.html)", "[hesim::flexsurvreg_list](https://hesim-dev.github.io/hesim/reference/flexsurvreg_list.html)")
+ictstm <- c("[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)", "Multi-state model", "[params_surv](https://hesim-dev.github.io/hesim/reference/params_surv.html) or [params_surv_list](https://hesim-dev.github.io/hesim/reference/params_surv_list.html)", "[flexsurv::flexsurvreg](https://www.rdocumentation.org/packages/flexsurv/versions/1.0.0/topics/flexsurvreg) or [hesim::flexsurvreg_list](https://hesim-dev.github.io/hesim/reference/flexsurvreg_list.html)")
 tbl <- rbind(psm, ictstm)
 colnames(tbl) <- c("Economic model (R6 class)", "Statistical model", "Parameter object", "Model fit object")
 knitr::kable(tbl, row.names = FALSE)
@@ -50,8 +50,8 @@ fit_wei <- flexsurv::flexsurvreg(Surv(years, status) ~ trans +
                                  dist = "weibull")
 
 ## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-means <- c("Mean model", "[params_mean](../reference/params_mean.html)", "[stateval_tbl](../reference/stateval_tbl.html)")
-lm <- c("Linear model", "[params_lm](../reference/params_lm.html)", "[stats::lm](https://www.rdocumentation.org/packages/stats/versions/3.5.1/topics/lm)")
+means <- c("Mean model", "[params_mean](https://hesim-dev.github.io/hesim/reference/params_mean.html)", "[stateval_tbl](https://hesim-dev.github.io/hesim/reference/stateval_tbl.html)")
+lm <- c("Linear model", "[params_lm](https://hesim-dev.github.io/hesim/reference/params_lm.html)", "[stats::lm](https://www.rdocumentation.org/packages/stats/versions/3.5.1/topics/lm)")
 tbl <- rbind(means, lm)
 colnames(tbl) <- c("Statistical model", "Parameter object", "Model fit object")
 knitr::kable(tbl, row.names = FALSE)
@@ -76,10 +76,10 @@ medcost_tbl <- stateval_tbl(data.table(state_id = states$state_id,
                             hesim_data = hesim_dat)  
 
 ## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm <- c("[Psm](../reference/Psm.html)", "[PsmCurves](../reference/PsmCurves.html)",
-         "[StateVals](../reference/StateVals.html)", "[StateVals](../reference/StateVals.html)")
-ictstm <- c("[IndivCtstm](../reference/IndivCtstm.html)", "[IndivCtstmTrans](../reference/IndivCtstmTrans.html)",
-         "[StateVals](../reference/StateVals.html)", "[StateVals](../reference/StateVals.html)")
+psm <- c("[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)", "[PsmCurves](https://hesim-dev.github.io/hesim/reference/PsmCurves.html)",
+         "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)", "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)")
+ictstm <- c("[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)", "[IndivCtstmTrans](https://hesim-dev.github.io/hesim/reference/IndivCtstmTrans.html)",
+         "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)", "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)")
 tbl <- rbind(psm, ictstm)
 colnames(tbl) <- c("Economic model", "Disease model", "Utility model", "Cost model(s)")
 knitr::kable(tbl, row.names = FALSE)
@@ -114,8 +114,8 @@ ictstm <- IndivCtstm$new(trans_model = transmod,
                          cost_models = costmods)
 
 ## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm_methods <- c("[Psm](../reference/Psm.html)", "$sim_survival() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
-ictstm_methods <- c("[IndivCtstm](../reference/IndivCtstm.html)", "$sim_disease() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
+psm_methods <- c("[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)", "$sim_survival() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
+ictstm_methods <- c("[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)", "$sim_disease() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
 tbl <- rbind(psm_methods, ictstm_methods)
 colnames(tbl) <- c("Economic model (R6 class)", "Disease progression", "QALYs", "Costs")
 knitr::kable(tbl, row.names = FALSE)
