@@ -52,7 +52,7 @@ medcosts_fit <- stats::lm(costs ~ female + state_name, data = psm4_exdata$costs$
 ## ---- warning = FALSE, message = FALSE-----------------------------------
 n_samples <- 100
 
-## ---- warning = FALSE, message = FALSE, cache = TRUE---------------------
+## ---- warning = FALSE, message = FALSE-----------------------------------
 surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
 survmods <- create_PsmCurves(psfit_wei, input_data = surv_input_data, n = n_samples,
                                bootstrap = TRUE, est_data = surv_est_data)
