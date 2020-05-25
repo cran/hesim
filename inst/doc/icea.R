@@ -1,4 +1,4 @@
-## ----ce_output, warning = FALSE, message = FALSE-------------------------
+## ----ce_output, warning = FALSE, message = FALSE------------------------------
 set.seed(131)
 n_samples <- 1000
 
@@ -32,24 +32,24 @@ ce <- data.table(sample = rep(seq(n_samples), length(e)),
                  cost = do.call("c", c), qalys = do.call("c", e))
 head(ce)
 
-## ----enmb_example--------------------------------------------------------
+## ----enmb_example-------------------------------------------------------------
 ce <- ce[, nmb := 150000 * qalys - cost]
 enmb <- ce[, .(enmb = mean(nmb)), by = c("strategy", "grp")]
 enmb <- dcast(enmb, strategy ~ grp, value.var = "enmb")
 print(enmb)
 
-## ----icea, warning = FALSE, message = FALSE------------------------------
+## ----icea, warning = FALSE, message = FALSE-----------------------------------
 library("hesim")
 ktop <- 200000
 icea <-  icea(ce, k = seq(0, ktop, 500), sample = "sample", strategy = "strategy",
                  grp = "grp", e = "qalys", c = "cost")
 
-## ----icea_pw-------------------------------------------------------------
+## ----icea_pw------------------------------------------------------------------
 icea_pw <-  icea_pw(ce,  k = seq(0, ktop, 500), comparator = "Strategy 1",
                        sample = "sample", strategy = "strategy", grp = "grp",
                     e = "qalys", c = "cost")
 
-## ----mce_example_setup, echo = -1, warning = FALSE, message = FALSE------
+## ----mce_example_setup, echo = -1, warning = FALSE, message = FALSE-----------
 library("knitr")
 random_rows <- sample(1:n_samples, 10)
 nmb_dt <- dcast(ce[sample %in% random_rows & grp == "Group 2"], 
@@ -58,12 +58,12 @@ setnames(nmb_dt, colnames(nmb_dt), c("sample", "nmb1", "nmb2", "nmb3"))
 nmb_dt <- nmb_dt[, maxj := apply(nmb_dt[, .(nmb1, nmb2, nmb3)], 1, which.max)]
 nmb_dt <- nmb_dt[, maxj := factor(maxj, levels = c(1, 2, 3))]
 
-## ----mce_example, echo = -1----------------------------------------------
+## ----mce_example, echo = -1---------------------------------------------------
 kable(nmb_dt, digits = 0, format = "html")
 mce <- prop.table(table(nmb_dt$maxj))
 print(mce)
 
-## ----mce_plot, warning = FALSE, message = FALSE--------------------------
+## ----mce_plot, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
 library("ggplot2")
 library("scales")
 theme_set(theme_minimal())
@@ -73,27 +73,27 @@ ggplot2::ggplot(icea$mce, aes(x = k, y = prob, col = factor(strategy))) +
   scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
   theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
 
-## ----ceaf_plot-----------------------------------------------------------
+## ----ceaf_plot, fig.width = 6, fig.height = 4---------------------------------
 ggplot2::ggplot(icea$mce[best == 1], aes(x = k, y = prob, col = strategy)) +
   geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
   ylab("Probability most cost-effective") +
   scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
   theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
 
-## ----evpi_example_a------------------------------------------------------
+## ----evpi_example_a-----------------------------------------------------------
 strategymax_g2 <- which.max(enmb[[3]])
 nmb_dt <- nmb_dt[, nmbpi := apply(nmb_dt[, .(nmb1, nmb2, nmb3)], 1, max)]
 nmb_dt <- nmb_dt[, nmbci := nmb_dt[[strategymax_g2 + 1]]]
 kable(nmb_dt, digits = 0, format = "html")
 
-## ----evpi_example_b------------------------------------------------------
+## ----evpi_example_b-----------------------------------------------------------
 enmbpi <- mean(nmb_dt$nmbpi)
 enmbci <- mean(nmb_dt$nmbci)
 print(enmbpi)
 print(enmbci)
 print(enmbpi - enmbci)
 
-## ----evpi_plot-----------------------------------------------------------
+## ----evpi_plot, fig.width = 6, fig.height = 4---------------------------------
 ggplot2::ggplot(icea$evpi, aes(x = k, y = evpi)) +
   geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
   ylab("Expected value of perfect information") +
@@ -101,7 +101,7 @@ ggplot2::ggplot(icea$evpi, aes(x = k, y = evpi)) +
   scale_y_continuous(label = scales::dollar) +
   theme(legend.position = "bottom") 
 
-## ----totevpi-------------------------------------------------------------
+## ----totevpi, fig.width = 6, fig.height = 4-----------------------------------
 w_dt <- data.table(grp = paste0("Group ", seq(1, 2)), w = c(0.25, .75))
 evpi <- icea$evpi
 evpi <- merge(evpi, w_dt, by = "grp")
@@ -114,14 +114,14 @@ ggplot2::ggplot(totevpi, aes(x = k, y = evpi)) +
   scale_y_continuous(label = scales::dollar) +
   theme(legend.position = "bottom") 
 
-## ----icea_summary--------------------------------------------------------
+## ----icea_summary-------------------------------------------------------------
 print(icea$summary)
 
-## ----icea_custom---------------------------------------------------------
+## ----icea_custom--------------------------------------------------------------
 ce[, .(median_cost = median(cost), median_qalys = median(qalys)),
    by = c("strategy", "grp")]
 
-## ----ceplane_plot--------------------------------------------------------
+## ----ceplane_plot, fig.width = 6, fig.height = 4------------------------------
 head(icea_pw$delta)
 ylim <- max(icea_pw$delta[, ic]) * 1.1
 xlim <- ceiling(max(icea_pw$delta[, ie]) * 1.1)
@@ -134,28 +134,28 @@ ggplot2::ggplot(icea_pw$delta, aes(x = ie, y = ic, col = factor(strategy))) +
   geom_abline(slope = 150000, linetype = "dashed") +
   geom_hline(yintercept = 0) + geom_vline(xintercept = 0)
 
-## ----ceac_plot-----------------------------------------------------------
+## ----ceac_plot, fig.width = 6, fig.height = 4---------------------------------
 ggplot2::ggplot(icea_pw$ceac, aes(x = k, y = prob, col = factor(strategy))) +
   geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
   ylab("Probability most cost-effective") +
   scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
   theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
 
-## ----icer----------------------------------------------------------------
+## ----icer---------------------------------------------------------------------
 print(icea_pw$summary)
 
-## ----totenmb-------------------------------------------------------------
+## ----totenmb------------------------------------------------------------------
 # Compute total expected NMB with one-size fits all treatment
 ce <- merge(ce, w_dt, by = "grp")
 totenmb <- ce[, .(totenmb = weighted.mean(nmb, w = w)), by = c("strategy")]
 totenmb_max <- max(totenmb$totenmb)
 
-## ----ptotenmb------------------------------------------------------------
+## ----ptotenmb-----------------------------------------------------------------
 # Compute total expected NMB with individualized treatment
 itotenmb_grp_max <- apply(as.matrix(enmb[, -1]), 2, max)
 itotenmb_max <- sum(itotenmb_grp_max * w_dt$w)
 
-## ----evic2---------------------------------------------------------------
+## ----evic2--------------------------------------------------------------------
 # Compute EVIC
 totnmb_scenarios <- c(itotenmb_max, totenmb_max)
 names(totnmb_scenarios) <- c("Individualized total expected NMB",

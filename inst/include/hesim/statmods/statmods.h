@@ -28,7 +28,21 @@ public:
    * from the input matrix (or matrices when there are multiple parameters).
    * @return The predicted value.
    */ 
-  virtual double predict(int sample, int obs) = 0;
+  virtual double predict(int sample, int obs) {
+    Rcpp::stop("predict() method is not available with the selected model.");
+  }
+  
+  /**
+   * Predict multiple values such as probabilities in a multinomial regression.
+   * @param sample A random sample of the parameters from the posterior
+   * distribution.
+   * @param obs The observation (i.e., row index) for which to make a prediction
+   * from the input matrix (or matrices when there are multiple parameters).
+   * @return A vector of predicted values.
+   */
+  virtual arma::rowvec multi_predict(int sample, int obs){
+    Rcpp::stop("multi_predict() method is not available with the selected model.");
+  };
   
   /** 
    * Sample random values from the underlying probability distribution of the
@@ -39,7 +53,9 @@ public:
    * from the input matrix (or matrices when there are multiple parameters).
    * @return A random draw.
    */ 
-  virtual double random(int sample, int obs) = 0;
+  virtual double random(int sample, int obs){
+    Rcpp::stop("random() method is not available with the selected model.");
+  }
   
   /** 
    * Get the number of random samples
@@ -49,38 +65,6 @@ public:
    */ 
   virtual int get_n_samples() = 0;  
 };
-
-/***************************************************************************//** 
- * A means model.
- * Prediction and random sampling from a model based on means. Random samples
- * are from a normal distribution.  
- ******************************************************************************/ 
-class mean : public statmod{
-private:
-  params_mean params_; ///< Parameters for a means model.
-  
-public:
-  /** 
-   * The constructor.
-   * Instantiates a means model.
-   */ 
-  mean(params_mean params)
-    : params_(params){
-  }  
-  
-  double predict(int sample, int obs) {
-    return params_.mu_(obs, sample);
-  }  
-  
-  double random(int sample, int obs) {
-    return R::rnorm(predict(sample, obs), params_.sigma_[sample]);
-  }  
-  
-  int get_n_samples(){
-    return params_.n_samples_;
-  }  
-};
-
 
 /***************************************************************************//** 
  * A linear model.
@@ -319,6 +303,91 @@ public:
     return params_.n_samples_;
   }
 
+};
+
+/***************************************************************************//** 
+ * A multinomial logit model.
+ * Predicted probabilities from a multinomial logit model.
+ ******************************************************************************/ 
+class mlogit : public statmod{
+private:
+  arma::mat X_; ///< Vector of matrices with a matrix for each possible transition.
+  params_mlogit params_; ///< Parameters for a multinomial logit model.
+  arma::rowvec cats_; ///< Possible categories for prediction. Used to index coefficients 
+                              ///< in @c params_. An integer value of 0 denotes the 
+                              ///< reference category.
+  int n_cats_; ///< Number of categories.
+  
+public:
+  /** 
+   * The constructor.
+   * Instantiates a multinomial logit model.
+   */ 
+  mlogit(arma::mat X, params_mlogit params, arma::rowvec cats)
+    : params_(params){
+    X_ = X;
+    cats_ = cats;
+    n_cats_ = cats_.size();
+  }
+  
+  arma::rowvec multi_predict(int sample, int obs) {
+    // Compute exp(xb)
+    arma::rowvec z(n_cats_);
+    for (int i = 0; i < n_cats_; ++i){
+      if (cats_(i) <= -1){ // Reference category
+        z(i) = 1.0;
+      }
+      else if (std::isnan(cats_(i))){ // A category that can't be achieved
+        z(i) = 0.0;
+      }
+      else { 
+        double xb = dot(X_.row(obs), params_.coefs_.slice(cats_(i)).row(sample));
+        z(i) = exp(xb);
+      }
+    }
+    
+    // Compute probabilities
+    arma::rowvec probs(n_cats_);
+    double Z = std::accumulate(z.begin(), z.end(), 0.0);
+    for (int i = 0; i < n_cats_; ++i){
+      probs(i) = z(i)/Z;
+    }
+    
+    return probs;
+  }
+  
+  int get_n_samples(){ 
+    return params_.n_samples_;
+  }
+};
+
+/***************************************************************************//** 
+ * Predicted means
+ * Stores predicted means from a statistical model. Based on the @c R class
+ * @c tparams_mean.
+ ******************************************************************************/ 
+class pred_means : public statmod{
+private:
+  arma::mat value_; 
+  int n_samples_;
+  
+public:
+  /** 
+   * The constructor.
+   * Instantiates a means model.
+   */ 
+  pred_means(Rcpp::List R_tparams_mean){
+    value_ = Rcpp::as<arma::mat> (R_tparams_mean["value"]);
+    n_samples_ = Rcpp::as<int>(R_tparams_mean["n_samples"]);
+  }  
+  
+  double predict(int sample, int obs) {
+    return value_(obs, sample);
+  }  
+  
+  int get_n_samples(){
+    return n_samples_;
+  }  
 };
 
 } // end namespace statmods

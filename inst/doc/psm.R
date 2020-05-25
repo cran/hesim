@@ -1,4 +1,4 @@
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 library("data.table")
 library("hesim")
 set.seed(101)
@@ -16,7 +16,7 @@ hesim_dat <- hesim_data(strategies = strategies_dt,
                         states = states_dt)
 print(hesim_dat)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 library("flexsurv")
 surv_est_data <- psm4_exdata$survival
 fit1 <- flexsurv::flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ age + female + 
@@ -33,48 +33,48 @@ fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ age + fem
                               dist = "weibull")
 psfit_wei <- flexsurvreg_list(fit1, fit2, fit3)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 utility_tbl <- stateval_tbl(tbl = data.frame(state_id = states_dt$state_id,
                                              min = psm4_exdata$utility$lower,
                                              max = psm4_exdata$utility$upper),
                             dist = "unif",
                             hesim_data = hesim_dat)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 drugcost_tbl <- stateval_tbl(tbl = data.frame(strategy_id = strategies_dt$strategy_id,
                                            est = psm4_exdata$costs$drugs$costs),
                           dist = "fixed",
                           hesim_data = hesim_dat)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 medcosts_fit <- stats::lm(costs ~ female + state_name, data = psm4_exdata$costs$medical)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 n_samples <- 100
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
 survmods <- create_PsmCurves(psfit_wei, input_data = surv_input_data, n = n_samples,
                                bootstrap = TRUE, est_data = surv_est_data)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 utilitymod <- create_StateVals(utility_tbl, n = n_samples)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 medcost_data <- expand(hesim_dat, by = c("strategies", "patients", "states"))
 medcostmod <- create_StateVals(medcosts_fit, input_data = medcost_data, 
                                  n = n_samples)
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 psm <- Psm$new(survival_models = survmods,
                utility_model = utilitymod,
                cost_models = list(medical = medcostmod, 
                                   drug = drugcostmod))
 
-## ----survcurves, warning = FALSE, message = FALSE------------------------
+## ----survcurves, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
 # Simulate
 times <- seq(0, 10, by = .1)
 psm$sim_survival(t = times)
@@ -95,7 +95,7 @@ ggplot(p_data, aes(x = t, y = mean_surv, fill = curve)) +
       guides(fill = FALSE) +
       theme(legend.position = "bottom")
 
-## ----stateprobs, warning = FALSE, message = FALSE------------------------
+## ----stateprobs, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
 # Simulate
 psm$sim_stateprobs()
 
@@ -117,7 +117,7 @@ ggplot(stateprobs[strategy_id %in% c(1, 2)],
                              nrow = 2, byrow = TRUE)) + 
   theme(legend.position = "bottom")
 
-## ---- warning = FALSE, message = FALSE-----------------------------------
+## ---- warning = FALSE, message = FALSE----------------------------------------
 # Costs
 psm$sim_costs(dr = .03)
 head(psm$costs_)
@@ -126,7 +126,7 @@ head(psm$costs_)
 psm$sim_qalys(dr = .03)
 head(psm$qalys_)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ce_sim <- psm$summarize()
 icea_out <- icea(ce_sim, dr_qalys = .03, dr_costs = .03)
 icea_pw_out <- icea_pw(ce_sim, comparator = 1, dr_qalys = .03, dr_costs = .03)

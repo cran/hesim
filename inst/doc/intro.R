@@ -1,14 +1,17 @@
-## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm <- c("N-state partitioned survival model (PSM)", "[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)")
-ictstm <- c("Individual-level continuous time state transition model (iCTSTM)", "[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)")
-tbl <- rbind(psm, ictstm)
+## ----echo = FALSE, message = FALSE, warning = FALSE---------------------------
+library("kableExtra")
+psm <- c("N-state partitioned survival model (PSM)", "`hesim::Psm`")
+cdtstm <- c("Cohort discrete time state transition model (cDTSTM)", "`hesim::CohortDtstm`")
+ictstm <- c("Individual-level continuous time state transition model (iCTSTM)", "`hesim::IndivCtstm`")
+tbl <- rbind(psm, cdtstm, ictstm)
 colnames(tbl) <- c("Economic model", "R6 class")
-knitr::kable(tbl, row.names = FALSE)
+knitr::kable(tbl, row.names = FALSE)  %>% # Pipe imported from kableExtra
+  kableExtra::kable_styling()
 
-## ---- out.width = "600px", echo = FALSE----------------------------------
+## ---- out.width = "600px", echo = FALSE---------------------------------------
 knitr::include_graphics("econ-eval-process-hesim.png")
 
-## ----warning = FALSE, message = FALSE------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("hesim")
 library("data.table")
 strategies <- data.table(strategy_id = c(1, 2))
@@ -30,16 +33,38 @@ hesim_dat <- hesim_data(strategies = strategies,
                         transitions = transitions)
 print(hesim_dat)
 
-## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm <- c("[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)", "Independent survival models", "[params_surv_list](https://hesim-dev.github.io/hesim/reference/params_surv_list.html)", "[hesim::flexsurvreg_list](https://hesim-dev.github.io/hesim/reference/flexsurvreg_list.html)")
-ictstm <- c("[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)", "Multi-state model", "[params_surv](https://hesim-dev.github.io/hesim/reference/params_surv.html) or [params_surv_list](https://hesim-dev.github.io/hesim/reference/params_surv_list.html)", "[flexsurv::flexsurvreg](https://www.rdocumentation.org/packages/flexsurv/versions/1.0.0/topics/flexsurvreg) or [hesim::flexsurvreg_list](https://hesim-dev.github.io/hesim/reference/flexsurvreg_list.html)")
-tbl <- rbind(psm, ictstm)
-colnames(tbl) <- c("Economic model (R6 class)", "Statistical model", "Parameter object", "Model fit object")
-knitr::kable(tbl, row.names = FALSE)
+## ----echo = FALSE, message = FALSE, warning = FALSE---------------------------
+tbl <- rbind(
+  c("`hesim::CohortDtstm`",
+    "Custom", 
+    "`hesim::tparams_transprobs`", 
+    "`hesim::define_model()`"),
+  c("`hesim::CohortDtstm`", 
+    "Multinomial logistic regressions",
+    "`hesim::params_mlogit_list`",
+    "`hesim::multinom_list`"),
+  c("`hesim::Psm`", 
+    "Independent survival models", 
+    "`hesim::params_surv_list`", 
+    "`hesim::flexsurvreg_list`"),
+  c("`hesim::IndivCtstm`", 
+    "Multi-state model (joint likelihood)", 
+    "`hesim::params_surv`", 
+    "`flexsurv::flexsurvreg`"),
+  c("`hesim::IndivCtstm`", 
+    "Multi-state model (transition-specific)", 
+    "`hesim::params_surv_list`", 
+    "`hesim::flexsurvreg_list`")  
+)
+colnames(tbl) <- c("Economic model (R6 class)", "Statistical model", 
+                   "Parameter object", "Model fit object")
+knitr::kable(tbl, row.names = FALSE) %>%
+  kableExtra::kable_styling() %>%
+  kableExtra::collapse_rows(columns = 1, valign = "top")
 
-## ---- message = FALSE, warning = FALSE-----------------------------------
+## ---- message = FALSE, warning = FALSE----------------------------------------
 library("flexsurv")
-mstate_data <- data.table(ctstm3_exdata$transitions)
+mstate_data <- data.table(mstate3_exdata$transitions)
 mstate_data[, trans := factor(trans)]
 fit_wei <- flexsurv::flexsurvreg(Surv(years, status) ~ trans + 
                                                        factor(strategy_id):trans +
@@ -49,56 +74,69 @@ fit_wei <- flexsurv::flexsurvreg(Surv(years, status) ~ trans +
                                  data = mstate_data, 
                                  dist = "weibull")
 
-## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-means <- c("Mean model", "[params_mean](https://hesim-dev.github.io/hesim/reference/params_mean.html)", "[stateval_tbl](https://hesim-dev.github.io/hesim/reference/stateval_tbl.html)")
-lm <- c("Linear model", "[params_lm](https://hesim-dev.github.io/hesim/reference/params_lm.html)", "[stats::lm](https://www.rdocumentation.org/packages/stats/versions/3.5.1/topics/lm)")
-tbl <- rbind(means, lm)
+## ----echo = FALSE, message = FALSE, warning = FALSE---------------------------
+tbl <- rbind(
+  c("Predicted means", 
+    "`hesim::tparams_mean`", 
+    "`hesim::stateval_tbl`"),
+  c("Predicted means", 
+    "`hesim::tparams_mean`", 
+    "`hesim::define_model()`"),
+  c("Linear model", 
+    "`hesim::params_lm`", 
+    "`stats::lm`")
+)
 colnames(tbl) <- c("Statistical model", "Parameter object", "Model fit object")
-knitr::kable(tbl, row.names = FALSE)
+knitr::kable(tbl, row.names = FALSE) %>%
+  kableExtra::kable_styling() %>%
+    kableExtra::collapse_rows(columns = 1, valign = "top")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # Utility
 utility_tbl <- stateval_tbl(data.table(state_id = states$state_id,
-                                       mean = ctstm3_exdata$utility$mean,
-                                       se = ctstm3_exdata$utility$se),
+                                       mean = mstate3_exdata$utility$mean,
+                                       se = mstate3_exdata$utility$se),
                             dist = "beta",
                             hesim_data = hesim_dat)
 
 # Costs
 drugcost_tbl <- stateval_tbl(data.table(strategy_id = strategies$strategy_id,
-                                       est = ctstm3_exdata$costs$drugs$costs),
+                                       est = mstate3_exdata$costs$drugs$costs),
                             dist = "fixed",
                             hesim_data = hesim_dat) 
 medcost_tbl <- stateval_tbl(data.table(state_id = states$state_id,
-                                       mean = ctstm3_exdata$costs$medical$mean,
-                                       se = ctstm3_exdata$costs$medical$se),
+                                       mean = mstate3_exdata$costs$medical$mean,
+                                       se = mstate3_exdata$costs$medical$se),
                             dist = "gamma",
                             hesim_data = hesim_dat)  
 
-## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm <- c("[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)", "[PsmCurves](https://hesim-dev.github.io/hesim/reference/PsmCurves.html)",
-         "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)", "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)")
-ictstm <- c("[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)", "[IndivCtstmTrans](https://hesim-dev.github.io/hesim/reference/IndivCtstmTrans.html)",
-         "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)", "[StateVals](https://hesim-dev.github.io/hesim/reference/StateVals.html)")
-tbl <- rbind(psm, ictstm)
+## ----echo = FALSE, message = FALSE, warning = FALSE---------------------------
+dtstm <- c("`hesim::CohortDtstm`", "`hesim::CohortDtstmTrans`",
+         "`hesim::StateVals`", "`hesim::StateVals`")
+psm <- c("`hesim::Psm`", "`hesim::PsmCurves`",
+         "`hesim::StateVals`", "`hesim::StateVals`")
+ictstm <- c("`hesim::IndivCtstm`", "`hesim::IndivCtstmTrans`",
+         "`hesim::StateVals`", "`hesim::StateVals`")
+tbl <- rbind(dtstm, psm, ictstm)
 colnames(tbl) <- c("Economic model", "Disease model", "Utility model", "Cost model(s)")
-knitr::kable(tbl, row.names = FALSE)
+knitr::kable(tbl, row.names = FALSE) %>%
+  kableExtra::kable_styling()
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 n_samples <- 1000
 
-## ----warning = FALSE, message = FALSE------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 transmod_data <- expand(hesim_dat, 
                         by = c("strategies", "patients", "transitions"))
 head(transmod_data)
 attr(transmod_data, "id_vars")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 transmod <- create_IndivCtstmTrans(fit_wei, transmod_data,
                                    trans_mat = tmat, n = n_samples)
 class(transmod)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # Utility
 utilitymod <- create_StateVals(utility_tbl, n = n_samples)
 
@@ -108,27 +146,29 @@ medcostmod <- create_StateVals(medcost_tbl, n = n_samples)
 costmods <- list(drugs = drugcostmod,
                  medical = medcostmod)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ictstm <- IndivCtstm$new(trans_model = transmod,
                          utility_model = utilitymod,
                          cost_models = costmods)
 
-## ----echo = FALSE, message = FALSE, warning = FALSE----------------------
-psm_methods <- c("[Psm](https://hesim-dev.github.io/hesim/reference/Psm.html)", "$sim_survival() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
-ictstm_methods <- c("[IndivCtstm](https://hesim-dev.github.io/hesim/reference/IndivCtstm.html)", "$sim_disease() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
-tbl <- rbind(psm_methods, ictstm_methods)
+## ----echo = FALSE, message = FALSE, warning = FALSE---------------------------
+cdtstm_methods <- c("`hesim::CohortDtstm`", "$sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
+psm_methods <- c("`hesim::Psm`", "$sim_survival() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
+ictstm_methods <- c("`hesim::IndivCtstm`", "$sim_disease() and $sim_stateprobs()", "$sim_qalys()", "$sim_costs()")
+tbl <- rbind(cdtstm_methods, psm_methods, ictstm_methods)
 colnames(tbl) <- c("Economic model (R6 class)", "Disease progression", "QALYs", "Costs")
-knitr::kable(tbl, row.names = FALSE)
+knitr::kable(tbl, row.names = FALSE) %>%
+  kableExtra::kable_styling()
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ictstm$sim_disease()
 head(ictstm$disprog_)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ictstm$sim_stateprobs(t = c(0:10))
 head(ictstm$stateprobs_)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # QALYs
 ictstm$sim_qalys(dr = .03)
 head(ictstm$qalys_)
@@ -137,15 +177,15 @@ head(ictstm$qalys_)
 ictstm$sim_costs(dr = .03)
 head(ictstm$costs_)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ce <- ictstm$summarize()
 print(ce)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 icea <- icea(ce, dr_qalys = .03, dr_costs = .03)
 icea_pw <- icea_pw(ce, dr_qalys = .03, dr_costs = .03, comparator = 1)
 
-## ----ceac_plot, warning = FALSE, message = FALSE-------------------------
+## ----ceac_plot, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
 library("ggplot2")
 ggplot2::ggplot(icea_pw$ceac, aes(x = k, y = prob, col = factor(strategy_id))) +
   geom_line() + xlab("Willingness to pay") +

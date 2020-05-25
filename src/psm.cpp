@@ -11,8 +11,8 @@ namespace psm {
 ****************/
 // Base case
 surv_mods::surv_mods(Rcpp::Environment R_PsmCurves)
-  : obs_index_(Rcpp::as<Rcpp::List>(R_PsmCurves["input_mats"])){
-  Rcpp::Environment R_input_mats = Rcpp::as<Rcpp::Environment > (R_PsmCurves["input_mats"]);
+  : obs_index_(Rcpp::as<Rcpp::List>(R_PsmCurves["input_data"])){
+  Rcpp::Environment R_input_mats = Rcpp::as<Rcpp::Environment > (R_PsmCurves["input_data"]);
   strategy_id_ = Rcpp::as<std::vector<int> >(R_input_mats["strategy_id"]);
   patient_id_ = Rcpp::as<std::vector<int> >(R_input_mats["patient_id"]);
 }
@@ -36,7 +36,7 @@ std::unique_ptr<surv_mods> surv_mods::create(Rcpp::Environment R_PsmCurves){
 surv_list::surv_list(Rcpp::Environment R_PsmCurves)
   : surv_mods(R_PsmCurves),
     params_(Rcpp::as<Rcpp::List>(R_PsmCurves["params"])){
-    Rcpp::List R_input_mats = Rcpp::as<Rcpp::List > (R_PsmCurves["input_mats"]);
+    Rcpp::List R_input_mats = Rcpp::as<Rcpp::List > (R_PsmCurves["input_data"]);
     X_ = Rcpp::as<vecmats_2d>(R_input_mats["X"]);
 }
 
@@ -166,6 +166,8 @@ Rcpp::DataFrame C_psm_curves_summary(Rcpp::Environment R_PsmCurves,
             out.sample_[counter] = s;
             out.strategy_id_[counter] = survmods->obs_index_.get_strategy_id();
             out.patient_id_[counter] = survmods->obs_index_.get_patient_id();
+            out.grp_id_[counter] = survmods->obs_index_.get_grp_id();
+            out.patient_wt_[counter] = survmods->obs_index_.get_patient_wt();
             out.x_[counter] = x[j];
             out.value_[counter] = res_vec[j];
             ++counter;
@@ -181,6 +183,8 @@ Rcpp::DataFrame C_psm_curves_summary(Rcpp::Environment R_PsmCurves,
     Rcpp::_["sample"] = out.sample_,
     Rcpp::_["strategy_id"] = out.strategy_id_,
     Rcpp::_["patient_id"] = out.patient_id_,
+    Rcpp::_["grp_id"] = out.grp_id_,
+    Rcpp::_["patient_wt"] = out.patient_wt_,
     Rcpp::_["curve"] = out.curve_,
     Rcpp::_["x"] = out.x_,
     Rcpp::_["value"] = out.value_,
@@ -271,6 +275,8 @@ Rcpp::List C_psm_sim_stateprobs(Rcpp::DataFrame R_psm_survival,
           out.sample_[counter] = surv_curves.sample_[index];
           out.strategy_id_[counter] = surv_curves.strategy_id_[index];
           out.patient_id_[counter] = surv_curves.patient_id_[index];
+          out.grp_id_[counter] = surv_curves.grp_id_[index];
+          out.patient_wt_[counter] = surv_curves.patient_wt_[index];
           out.state_id_[counter] = h;
           out.t_[counter] = surv_curves.x_[index];
           out.prob_[counter] = stateprobs_sim1(index, h, n_states, n_times,
@@ -292,37 +298,3 @@ Rcpp::List C_psm_sim_stateprobs(Rcpp::DataFrame R_psm_survival,
   ));    
   
 }
-
-/***************************************************************************//** 
- * @ingroup psm
- * Simulate weighted length of stay from health state probabilities simulated
- * using a partitioned survival model.
- * This function is exported to @c R and used in @c Psm$sim_costs() and
- * @c Psm$sim_qalys(). 
- * @param R_psm An @c R object of class @c Psm
- * @param R_stateprobs State probabilities computed using an R object of class 
- * @c Psm. (This is needed in addition to @p R_psm because a modified copy of
- * @c Psm$stateprobs_ is passed to @c C++ and its more efficient to copy a single
- * data member than the entire class object.)
- * @param dr Discount rate.
- * @param type "costs" for costs; "qalys" for quality-adjusted life-years.
- * @param categories Categories with a given @p type. For QALYs, there is only one
- * category ("qalys"), but for costs this could consist of different cost categories
- * such as drug acquisition and administration costs, resource use costs, etc. 
- * @return An @c R data frame with columns equivalent to the data members in
- * hesim::wlos_out_out.
- ******************************************************************************/ 
-// [[Rcpp::export]]
-Rcpp::DataFrame C_psm_sim_wlos(Rcpp::Environment R_Psm, Rcpp::DataFrame R_stateprobs, 
-                              std::vector<double> dr, std::string type,
-                              std::vector<std::string> categories){
-  hesim::wlos wlos(R_Psm, type);
-  hesim::stateprobs_out stprobs(R_stateprobs);
-  std::vector<double> times = Rcpp::as<std::vector<double> > (R_Psm["t_"]);
-  hesim::wlos_out out = wlos(stprobs, times, dr, categories);
-  return out.create_R_data_frame();
-}
-
-
-
-

@@ -4,28 +4,32 @@
 \alias{summarize_ce}
 \title{Summarize costs and effectiveness}
 \usage{
-summarize_ce(costs, qalys)
+summarize_ce(costs, qalys, by_grp = FALSE)
 }
 \arguments{
-\item{costs}{Simulated costs by category.}
+\item{costs}{Simulated costs by category (objects of class \link{costs}).}
 
-\item{qalys}{Simulated QALYs.}
+\item{qalys}{Simulated QALYs (objects of class \link{qalys}).}
+
+\item{by_grp}{If \code{TRUE}, then costs and QALYs are computed by subgroup. If
+\code{FALSE}, then costs and QALYs are aggregated across all patients (and subgroups).}
 }
 \value{
-An object of class \code{\link{ce}}.
+An object of class \link{ce}.
 }
 \description{
 Summarize costs and quality-adjusted life-years (QALYs) given output simulated
-from an economic model. The summary output is used to perform 
-cost-effectiveness analysis with \code{\link{icea}} and \code{\link{icea_pw}}.
+from an economic model. The summary output is used to perform
+cost-effectiveness analysis with \code{\link[=icea]{icea()}} and \code{\link[=icea_pw]{icea_pw()}}.
 }
 \details{
-If mean costs and/or QALYs have already been computed 
-(i.e., an average within a population), then there 
-must be one observation for each discount rate (\code{dr}), 
-PSA sample (\code{sample}), treatment strategy (\code{strategy_id}), 
-and health state (\code{state_id}). Alternatively, there can be column
+If mean costs and/or QALYs have already been computed
+(i.e., an average within a population), then there
+must be one observation for each discount rate (\code{dr}),
+PSA sample (\code{sample}), treatment strategy (\code{strategy_id}),
+and health state (\code{state_id}). Alternatively, there can be a column
 denoting a patient (\code{patient_id}), in which case outcomes will first be
-averaged across patients.
+averaged across patients. A \code{grp_id} column can also be used so that
+outcomes are computed for each subgroup (if \code{by_grp = TRUE}); otherwise it is assumed that
+there is only one subgroup.
 }
-\keyword{internal}

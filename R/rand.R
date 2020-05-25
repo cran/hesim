@@ -93,31 +93,59 @@ rpwexp <- function(n, rate = 1, time = 0){
 
 #' Random generation for multiple Dirichlet distributions
 #'
-#' Draw random samples from multiple Dirichlet distributions.
-#'\code{rdirichlet_mat} is vectorized and written in C++ for speed.  
+#' Draw random samples from multiple Dirichlet distributions for use in 
+#' transition probability matrices.
+#' 
 #'
 #' @param n Number of samples to draw.
 #' @param alpha A matrix where each row is a separate vector of shape parameters.
+#' @param output The class of the object returned by the function. Either an 
+#' `array`, `matrix`, `data.frame`, or `data.table`.
 #' @name rdirichlet_mat
 #' @examples
 #' alpha <- matrix(c(100, 200, 500, 50, 70, 75), ncol = 3, nrow = 2, byrow = TRUE)
 #' samp <- rdirichlet_mat(100, alpha)
 #' print(samp[, , 1:2])
-#' @details This function is particularly useful for representing the distribution of 
-#' transition probabilities in a transition matrix.
-#' @return An array of matrices where each row of each matrix is a sample from the Dirichlet distribution.
+#' @details This function is meant for representing the distribution of 
+#' transition probabilities in a transition matrix. The `(i,j)` element of
+#' `alpha` is a transition from state `i` to state `j`. It is vectorized and 
+#' written in `C++` for speed. 
+#' @return If `output = "array"`, then an array of matrices is returned 
+#' where each row of each matrix is a sample from the Dirichlet distribution.
+#' If `output` results in a two dimensional object (i.e., a `matrix`, 
+#' `data.frame`, or `data.table`, then each row contains
+#' all elements of the sampled matrix from the Dirichlet distribution 
+#' ordered rowwise; that is, each matrix is flattened. In these cases, 
+#' the number of rows must be less than or equal to the number of columns.  
 #' @export
-rdirichlet_mat <- function(n, alpha){
+rdirichlet_mat <- function(n, alpha, output = c("array", "matrix", "data.frame", 
+                                                "data.table")){
+  output <- match.arg(output)
   if (n <= 0){
     stop("n must be greater than 0")
   }
-  if (!is.matrix(alpha) & !is.vector(alpha)){
-    stop("alpha must be a vector or a matrix")
+  if (!(is.numeric(alpha) & length(dim(alpha)) <= 2)){
+    stop("alpha must be a numeric matrix or vector")
   }
-  if (is.vector(alpha)){
+  if (!is.matrix(alpha)){
     alpha <- matrix(alpha, nrow = 1)
   }
   samp <- C_rdirichlet_mat(n, alpha)
+  if (output %in% c("matrix", "data.frame", "data.table")){
+    if (nrow(alpha) > ncol(alpha)){
+      stop(paste0("The number of rows of 'alpha' must be less than or equal to ",
+                  "the number of columns unless 'output = arrary'."))
+    }
+    samp <- matrix(c(aperm(samp, perm = c(2, 1, 3))),
+                   ncol = dim(samp)[1] * dim(samp)[2], byrow = TRUE)
+    colnames(samp) <- paste0("prob_", 1:ncol(samp))
+  }
+  if (output == "data.frame"){
+    samp <- data.frame(samp)
+  } 
+  if (output == "data.table"){
+    samp <- data.table(samp)
+  }
   return(samp)
 }
 

@@ -18,14 +18,14 @@ icer_tbl(
 )
 }
 \arguments{
-\item{x}{An object of class "icea_pw" returned by \code{\link{icea_pw}}.}
+\item{x}{An object of class \code{icea_pw} returned by \code{\link[=icea_pw]{icea_pw()}}.}
 
 \item{k}{Willingness to pay.}
 
-\item{cri}{If \code{TRUE}, credible intervals are computed; otherwise 
+\item{cri}{If \code{TRUE}, credible intervals are computed; otherwise
 they are not.}
 
-\item{prob}{A numeric scalar in the interval \code{(0,1)} giving the credible interval.
+\item{prob}{A numeric scalar in the interval \verb{(0,1)} giving the credible interval.
 Default is 0.95 for a 95 percent credible interval.}
 
 \item{digits_qalys}{Number of digits to use to report QALYs.}
@@ -39,7 +39,7 @@ each group.}
 
 \item{colnames}{Column names for matrices when \code{output = "matrix"}.}
 
-\item{drop}{If \code{TRUE}, then the result is coerced to the lowest possible dimension. 
+\item{drop}{If \code{TRUE}, then the result is coerced to the lowest possible dimension.
 Relevant if \code{output = "matrix"} and there is one group, in which case a single
 matrix will be returned if \code{drop = TRUE} and a list of length 1 will be returned
 if \code{drop = FALSE}.}
@@ -47,20 +47,20 @@ if \code{drop = FALSE}.}
 \value{
 If \code{output = "matrix"}, then a list of matrices (or a matrix if
 \code{drop = TRUE}) reporting incremental cost-effectiveness ratios (ICERs)
-by group. Specifically, each matrix contains five rows for: (i) 
+by group. Specifically, each matrix contains five rows for: (i)
 incremental quality-adjusted life-years (QALYs), (ii) incremental costs,
-(iii) the incremental net monetary benefit (NMB), (iv) the ICER, 
+(iii) the incremental net monetary benefit (NMB), (iv) the ICER,
 and (v) a conclusion stating whether each strategy is cost-effective relative
- to a comparator. The number of columns is equal to the
+to a comparator. The number of columns is equal to the
 number of strategies (including the comparator).
 
 If \code{output = "data.table"}, then the results are reported as a \code{data.table},
 with one row for each strategy and group combination.
 }
 \description{
-Generate a table of incremental cost-effectiveness ratios given output from 
-\code{\link{icea_pw}}.
+Generate a table of incremental cost-effectiveness ratios given output from
+\code{\link[=icea_pw]{icea_pw()}}.
 }
 \seealso{
-\code{\link{icea_pw}}
+\code{\link[=icea_pw]{icea_pw()}}
 }

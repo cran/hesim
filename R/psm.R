@@ -33,18 +33,54 @@ create_PsmCurves.flexsurvreg_list <- function(object, input_data, n = 1000, poin
   psfit <- partsurvfit(object, est_data)
   input_mats <- create_input_mats(psfit, input_data, id_vars = c("strategy_id", "patient_id"))
   params <- create_params(psfit, n = n, point_estimate = point_estimate, bootstrap = bootstrap)
-  return(PsmCurves$new(input_mats = input_mats, params = params))
+  return(PsmCurves$new(input_data = input_mats, params = params))
 }
 
 #' @export
 #' @rdname create_PsmCurves
 create_PsmCurves.params_surv_list <- function(object, input_data, ...){
   input_mats <- create_input_mats(object, input_data)
-  return(PsmCurves$new(input_mats = input_mats, params = object))
+  return(PsmCurves$new(input_data = input_mats, params = object))
 }
 
 
-# Manual documentation in PsmCurves.Rd
+#' Partitioned survival curves
+#'
+#' @description
+#' Summarize `n-1` survival curves for an `N` state partitioned survival model.
+#' @format An [R6::R6Class] object.
+#' @examples 
+#' library("flexsurv")
+#'
+#' # Simulation data
+#' dt_strategies <- data.frame(strategy_id = c(1, 2, 3))
+#' dt_patients <- data.frame(patient_id = seq(1, 3),
+#'                           age = c(45, 50, 60),
+#'                           female = c(0, 0, 1))
+#' hesim_dat <- hesim_data(strategies = dt_strategies,
+#'                         patients = dt_patients)
+#'
+#' # Fit survival models
+#' surv_est_data <- psm4_exdata$survival
+#' fit1 <- flexsurv::flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ age,
+#'                               data = surv_est_data, dist = "exp")
+#' fit2 <- flexsurv::flexsurvreg(Surv(endpoint2_time, endpoint2_status) ~ age,
+#'                               data = surv_est_data, dist = "exp")
+#' fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ age,
+#'                               data = surv_est_data, dist = "exp")
+#' fits <- flexsurvreg_list(fit1, fit2, fit3)
+#'
+#' # Form PsmCurves
+#' surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
+#' psm_curves <- create_PsmCurves(fits, input_data = surv_input_data, n = 3,
+#'                                bootstrap = TRUE, est_data = surv_est_data)
+#'
+#' # Summarize survival curves
+#' head(psm_curves$quantile(p = c(.25, .5, .75)))
+#' head(psm_curves$survival(t = seq(0, 3, by = .1)))
+#' head(psm_curves$rmst(t = c(2, 5)))
+#' 
+#' @seealso [Psm], [create_PsmCurves()]
 #' @export
 PsmCurves <- R6::R6Class("PsmCurves",
   private = list(
@@ -56,6 +92,7 @@ PsmCurves <- R6::R6Class("PsmCurves",
       res <- data.table(C_psm_curves_summary(self, x, type, dr))
       res[, curve := curve + 1]
       res[, sample := sample + 1]
+      check_patient_wt(self, res)
       if (type %in% c("hazard", "cumhazard", "survival", "rmst")){
         setnames(res, "x", "t")
       } else if (type == "quantile"){
@@ -71,37 +108,75 @@ PsmCurves <- R6::R6Class("PsmCurves",
   ),                            
                               
   public = list(
-    input_mats = NULL,
+    #' @field params An object of class [params_surv_list].
     params = NULL,
-
-    initialize = function(input_mats, params) {
-      self$input_mats <- input_mats
-      self$params <- params
-    },
     
+    #' @field input_data An object of class [input_mats]. Each row in `X` must
+    #' be a unique treatment strategy and patient.
+    input_data = NULL,
+
+    #' @description
+    #' Create a new `PsmCurves` object.
+    #' @param params The `params` field.
+    #' @param input_data The `input_data` field.
+    #' @return A new `PsmCurves` object.
+    initialize = function(params, input_data) {
+      self$params <- params
+      self$input_data <- input_data
+    },
+
+    #' @description
+    #' Predict the hazard function for each survival curve as a function of time.
+    #' @param t  A numeric vector of times.
+    #' @return A `data.table` with columns `sample`, `strategy_id`,
+    #' `patient_id`, `grp_id`, `curve` (the curve number), `t`, and `hazard`.
     hazard = function(t){
       return(private$summary(x = t, type = "hazard"))
     },
     
+    #' @description
+    #' Predict the cumulative hazard function for each survival curve as a function of time.
+    #' @param t  A numeric vector of times.
+    #' @return A `data.table` with columns `sample`, `strategy_id`,
+    #' `patient_id`, `grp_id`, `curve`, `t`, and `cumhazard`.
     cumhazard = function(t){
       return(private$summary(x = t, type = "cumhazard"))
     },
     
+    #' @description
+    #' Predict the cumulative hazard function for each survival curve as a function of time.
+    #' @param t  A numeric vector of times.
+    #' @return A `data.table` with columns `sample`, `strategy_id`,
+    #' `patient_id`, `grp_id`, `curve`, `t`, and `survival`.    
     survival = function(t){
       return(private$summary(x = t, type = "survival"))
     },
-    
+
+    #' @description
+    #' Predict the restricted mean survival time up until time points `t`
+    #'  for each survival curve.
+    #' @param t  A numeric vector of times.
+    #' @param dr Discount rate.
+    #' @return A `data.table` with columns `sample`, `strategy_id`,
+    #' `patient_id`, `grp_id`, `curve`, `t`, and `rmst`.     
     rmst = function(t, dr = 0){
       return(private$summary(x = t, type = "rmst", dr = dr))
     },
     
+    #' @description
+    #' Predict quantiles of the survival distribution for each survival curve.
+    #' @param p  A numeric vector of probabilities for computing quantiles.
+    #' @return A `data.table` with columns `sample`, `strategy_id`,
+    #' `patient_id`, `grp_id`, `curve`, `p` and `quantile`.       
     quantile = function(p){
       return(private$summary(x = p, type = "quantile"))
     },
-    
+
+    #' @description
+    #' Input validation for class. Checks that fields are the correct type.     
     check = function(){
-      if(!inherits(self$input_mats, "input_mats")){
-        stop("'input_mats' must be an object of class 'input_mats'",
+      if(!inherits(self$input_data, "input_mats")){
+        stop("'input_data' must be an object of class 'input_mats'",
             call. = FALSE)
       }
       if(!inherits(self$params, c("params_surv_list", 
@@ -114,88 +189,110 @@ PsmCurves <- R6::R6Class("PsmCurves",
 )
 
 # Psm --------------------------------------------------------------------------
-# Manual documentation in Psm.Rd
+#' N-state partitioned survival model
+#'
+#' @description
+#' Simulate outcomes from an N-state partitioned survival model.
+#' @format An [R6::R6Class] object.
+#' @examples
+#' library("flexsurv")
+#'
+#' # Simulation data
+#' strategies <- data.frame(strategy_id = c(1, 2, 3))
+#' patients <- data.frame(patient_id = seq(1, 3),
+#'                        age = c(45, 50, 60),
+#'                        female = c(0, 0, 1))
+#' states <- data.frame(state_id =  seq(1, 3),
+#'                      state_name = paste0("state", seq(1, 3)))
+#' hesim_dat <- hesim_data(strategies = strategies,
+#'                         patients = patients,
+#'                         states = states)
+#' n_samples <- 3
+#'
+#' # Survival models
+#' surv_est_data <- psm4_exdata$survival
+#' fit1 <- flexsurv::flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ age,
+#'                               data = surv_est_data, dist = "exp")
+#' fit2 <- flexsurv::flexsurvreg(Surv(endpoint2_time, endpoint2_status) ~ age,
+#'                               data = surv_est_data, dist = "exp")
+#' fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ age,
+#'                               data = surv_est_data, dist = "exp")
+#' fits <- flexsurvreg_list(fit1, fit2, fit3)
+#'
+#' surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
+#' psm_curves <- create_PsmCurves(fits, input_data = surv_input_data,
+#'                                bootstrap = TRUE, est_data = surv_est_data, 
+#'                                n = n_samples)
+#'
+#' # Cost model(s)
+#' cost_input_data <- expand(hesim_dat, by = c("strategies", "patients", "states"))
+#' fit_costs_medical <- stats::lm(costs ~ female + state_name, 
+#'                                data = psm4_exdata$costs$medical)
+#' psm_costs_medical <- create_StateVals(fit_costs_medical, 
+#'                                       input_data = cost_input_data, 
+#'                                       n = n_samples)
+#'
+#' # Utility model
+#' utility_tbl <- stateval_tbl(tbl = data.frame(state_id = states$state_id,
+#'                                              min = psm4_exdata$utility$lower,
+#'                                              max = psm4_exdata$utility$upper),
+#'                             dist = "unif",
+#'                             hesim_data = hesim_dat)
+#' psm_utility <- create_StateVals(utility_tbl, n = n_samples)
+#'
+#' # Partitioned survival decision model
+#' psm <- Psm$new(survival_models = psm_curves,
+#'                utility_model = psm_utility,
+#'                cost_models = list(medical = psm_costs_medical))
+#' psm$sim_survival(t = seq(0, 5, .05))
+#' psm$sim_stateprobs()
+#' psm$sim_costs(dr = .03)
+#' head(psm$costs_)
+#' head(psm$sim_qalys(dr = .03)$qalys_)
+#'
+#' @seealso [PsmCurves], [create_PsmCurves()]
 #' @export
 Psm <- R6::R6Class("Psm",
-  private = list(
-    
-    sim_wlos = function(dr, type){
-      if(is.null(self$stateprobs_)){
-        stop("You must first simulate health state probabilities using '$sim_stateprobs'.",
-             call. = FALSE)
-      }
-      check_dr(dr)
-      
-      # Time varying state values are not currently supported
-      if (type == "qalys"){
-        if (!is.null(self$utility_model$input_mats$time_intervals)){
-          stop("Time varying utilities are not currently supported with PSMs.")
-        }
-      } else{
-          for (i in 1:length(self$cost_models)){
-            if (!is.null(self$cost_models[[i]]$input_mats$time_intervals)){
-              stop("Time varying costs are not currently supported with PSMs.")
-            } 
-          }
-      }
-      
-      statvalmods <- switch(type,
-                           costs = self$cost_models,
-                           qalys = list(self$utility_model))
-      
-      statvalmods_name <- switch(type,
-                                costs = "cost_models",
-                                qalys = "utility_model")
-      
-      # Check number of samples
-      expected_samples <- max(self$stateprobs_$sample)
-      for (i in 1:length(statvalmods)){
-        if (statvalmods[[i]]$params$n_samples != expected_samples){
-          msg <- paste0("Number of samples in '", statvalmods_name, "' must equal to ",
-                        " the number of samples in 'survival_models', which is ",
-                         expected_samples)
-          stop(msg, call. = FALSE)
-        }
-      }
-      
-      # Check number of states
-      for (i in 1:length(statvalmods)){
-        if(self$n_states != statvalmods[[i]]$input_mats$n_states + 1){
-          msg <- paste0("The number of survival models must equal the number of states in '",
-                        statvalmods_name, "' - 1.")
-          stop(msg, call. = FALSE)
-        }
-      } # loop over models
-      
-      stateprobs <- self$stateprobs_[state_id != self$n_states] 
-      
-      if (type == "costs"){
-        if (is.null(names(self$cost_models))){
-          categories <- paste0("Type ", seq(1, length(self$cost_models)))
-        } else{
-            categories <- names(self$cost_models)
-        } # end if/else names for cost models
-      } else{
-        categories <- "qalys"
-      } # end if/else costs vs. qalys
-
-      res <- data.table(C_psm_sim_wlos(self, stateprobs, dr, type, categories))
-      res[, sample := sample + 1]
-      return(res[])
-    } # end sim_wlos()
-  ), # end private
-                        
   public = list(
+    #' @field survival_models The survival models used to predict survival curves. Must be
+    #' an object of class [PsmCurves].
     survival_models = NULL,
+    
+    #' @field utility_model The model for health state utility. Must be an object of
+    #' class [StateVals].
     utility_model = NULL,
+    
+    #' @field cost_models The models used to predict costs by health state. 
+    #' Must be a list of objects of class [StateVals], where each element of the 
+    #' list represents a different cost category.    
     cost_models = NULL,
+    
+    #' @field n_states Number of states in the partitioned survival model.
     n_states = NULL,
+    
+    #' @field t_ A numeric vector of times at which survival curves were predicted. Determined
+    #' by the argument `t` in `$sim_curves()`.
     t_ = NULL,
+    
+    #' @field survival_ Survival curves simulated using `sim_curves()`.
     survival_ = NULL,
+    
+    #' @field stateprobs_ An object of class [stateprobs] simulated using `$sim_stateprobs()`.
     stateprobs_ = NULL,
+    
+    #' @field qalys_ An object of class [qalys] simulated using `$sim_qalys()`.
     qalys_ = NULL,
+    
+    #' @field costs_ An object of class [costs] simulated using `$sim_costs()`.
     costs_ = NULL,
 
+    #' @description
+    #' Create a new `Psm` object.
+    #' @param survival_models The `survival_models` field.
+    #' @param utility_model The `utility_model` field.
+    #' @param cost_models The `cost_models` field.
+    #' @details `n_states` is set equal to the number of survival models plus one.
+    #' @return A new `Psm` object.    
     initialize = function(survival_models, utility_model = NULL, cost_models = NULL) {
       self$survival_models <- survival_models
       self$cost_models = cost_models
@@ -203,6 +300,11 @@ Psm <- R6::R6Class("Psm",
       self$n_states <- length(self$survival_models$params) + 1
     },
     
+    #' @description
+    #' Simulate survival curves as a function of time using `PsmCurves$sim_survival()`.
+    #' @param t A numeric vector of times. The first element must be `0`.
+    #' @return An instance of `self` with simulated output from `PsmCurves$sim_survival()`
+    #' stored in `stateprobs_`.
     sim_survival = function(t){
       if (t[1] !=0){
         stop("The first element of 't' must be 0.", call. = FALSE)
@@ -217,6 +319,11 @@ Psm <- R6::R6Class("Psm",
       invisible(self)
     },
     
+    #' @description
+    #' Simulate health state probabilities from `survival_` using a partitioned
+    #' survival analysis.
+    #' @return An instance of `self` with simulated output of class [stateprobs] 
+    #' stored in `stateprobs_`.    
     sim_stateprobs = function(){
       if(is.null(self$survival_)){
         stop("You must first simulate survival curves using '$sim_survival'.",
@@ -224,8 +331,8 @@ Psm <- R6::R6Class("Psm",
       }
       res <- C_psm_sim_stateprobs(self$survival_,
                                   n_samples = self$survival_models$params[[1]]$n_samples,
-                                  n_strategies = self$survival_models$input_mats$n_strategies,
-                                  n_patients = self$survival_models$input_mats$n_patients,
+                                  n_strategies = self$survival_models$input_data$n_strategies,
+                                  n_patients = self$survival_models$input_data$n_patients,
                                   n_states = self$n_states,
                                   n_times = length(self$t_))
       prop_cross <- res$n_crossings/nrow(res$stateprobs)
@@ -237,31 +344,42 @@ Psm <- R6::R6Class("Psm",
       stateprobs <- data.table(res$stateprobs)
       stateprobs[, state_id := state_id + 1]
       stateprobs[, sample := sample + 1]
+      check_patient_wt(self, stateprobs)
       self$stateprobs_ <- stateprobs[]
+      setattr(self$stateprobs_, "class", 
+              c("stateprobs", "data.table", "data.frame"))
+      invisible(self)
+    },
+
+    #' @description
+    #' Simulate quality-adjusted life-years (QALYs) as a function of `stateprobs_` and
+    #' `utility_model`. See `vignette("expected-values")` for details.
+    #' @param dr Discount rate.
+    #' @param integrate_method Method used to integrate state values when computing (QALYs).
+    #' @param lys If `TRUE`, then life-years are simulated in addition to QALYs.
+    #' @return An instance of `self` with simulated output of class [qalys] stored
+    #' in `qalys_`.    
+    sim_qalys = function(dr = .03, integrate_method = c("trapz", "riemann_left", "riemann_right"),
+                         lys = FALSE){
+      self$qalys_ <- sim_qalys(self$stateprobs_, self$utility_model, dr, integrate_method)
       invisible(self)
     },
     
-    sim_qalys = function(dr = .03){
-      self$utility_model$check()
-      qalys <- private$sim_wlos(dr, type = "qalys")
-      setnames(qalys, "value", "qalys")
-      self$qalys_ <- qalys
+    #' @description
+    #' Simulate costs as a function of `stateprobs_` and `cost_models`. 
+    #' See `vignette("expected-values")` for details.
+    #' @param dr Discount rate.
+    #' @param integrate_method Method used to integrate state values when computing costs.
+    #' @return An instance of `self` with simulated output of class [costs] stored
+    #' in `costs_`.    
+    sim_costs = function(dr = .03, integrate_method = c("trapz", "riemann_left", "riemann_right")){
+      self$costs_ <- sim_costs(self$stateprobs_, self$cost_models, dr, integrate_method)
       invisible(self)
     },
     
-    sim_costs = function(dr = .03){
-      if(!is.list(self$cost_models)){
-        stop("'cost_models' must be a list", call. = FALSE)
-      }
-      for (i in 1:length(self$cost_models)){
-        self$cost_models[[i]]$check()
-      }
-      costs <- private$sim_wlos(dr, type = "costs")
-      setnames(costs, "value", "costs")
-      self$costs_ <- costs
-      invisible(self)
-    },
-    
+    #' @description
+    #' Summarize costs and QALYs so that cost-effectiveness analysis can be performed. 
+    #' See [summarize_ce()].       
     summarize = function() {
       check_summarize(self)
       return(summarize_ce(self$costs_, self$qalys_))

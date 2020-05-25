@@ -4,23 +4,38 @@
 \alias{rdirichlet_mat}
 \title{Random generation for multiple Dirichlet distributions}
 \usage{
-rdirichlet_mat(n, alpha)
+rdirichlet_mat(
+  n,
+  alpha,
+  output = c("array", "matrix", "data.frame", "data.table")
+)
 }
 \arguments{
 \item{n}{Number of samples to draw.}
 
 \item{alpha}{A matrix where each row is a separate vector of shape parameters.}
+
+\item{output}{The class of the object returned by the function. Either an
+\code{array}, \code{matrix}, \code{data.frame}, or \code{data.table}.}
 }
 \value{
-An array of matrices where each row of each matrix is a sample from the Dirichlet distribution.
+If \code{output = "array"}, then an array of matrices is returned
+where each row of each matrix is a sample from the Dirichlet distribution.
+If \code{output} results in a two dimensional object (i.e., a \code{matrix},
+\code{data.frame}, or \code{data.table}, then each row contains
+all elements of the sampled matrix from the Dirichlet distribution
+ordered rowwise; that is, each matrix is flattened. In these cases,
+the number of rows must be less than or equal to the number of columns.
 }
 \description{
-Draw random samples from multiple Dirichlet distributions.
-\code{rdirichlet_mat} is vectorized and written in C++ for speed.
+Draw random samples from multiple Dirichlet distributions for use in
+transition probability matrices.
 }
 \details{
-This function is particularly useful for representing the distribution of 
-transition probabilities in a transition matrix.
+This function is meant for representing the distribution of
+transition probabilities in a transition matrix. The \verb{(i,j)} element of
+\code{alpha} is a transition from state \code{i} to state \code{j}. It is vectorized and
+written in \verb{C++} for speed.
 }
 \examples{
 alpha <- matrix(c(100, 200, 500, 50, 70, 75), ncol = 3, nrow = 2, byrow = TRUE)

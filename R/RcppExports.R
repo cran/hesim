@@ -41,16 +41,28 @@ C_rdirichlet_mat <- function(n, alpha) {
     .Call('_hesim_C_rdirichlet_mat', PACKAGE = 'hesim', n, alpha)
 }
 
+C_normalize_transprobs <- function(value) {
+    invisible(.Call('_hesim_C_normalize_transprobs', PACKAGE = 'hesim', value))
+}
+
+C_cohort_dtstm_sim_stateprobs <- function(R_CohortDtstmTrans, times) {
+    .Call('_hesim_C_cohort_dtstm_sim_stateprobs', PACKAGE = 'hesim', R_CohortDtstmTrans, times)
+}
+
 C_ctstm_sim_disease <- function(R_CtstmTrans, start_state, start_age, start_time, death_state, clock, reset_states, max_t, max_age, progress) {
     .Call('_hesim_C_ctstm_sim_disease', PACKAGE = 'hesim', R_CtstmTrans, start_state, start_age, start_time, death_state, clock, reset_states, max_t, max_age, progress)
 }
 
-C_ctstm_indiv_stateprobs <- function(R_disease_prog, t, n_samples, n_strategies, unique_strategy_id, strategy_index, n_states, n_patients, n_lines = 1L) {
-    .Call('_hesim_C_ctstm_indiv_stateprobs', PACKAGE = 'hesim', R_disease_prog, t, n_samples, n_strategies, unique_strategy_id, strategy_index, n_states, n_patients, n_lines)
+C_ctstm_indiv_stateprobs <- function(R_disease_prog, t, n_samples, n_strategies, unique_strategy_id, strategy_index, n_grps, unique_grp_id, grp_index, n_states, n_patients) {
+    .Call('_hesim_C_ctstm_indiv_stateprobs', PACKAGE = 'hesim', R_disease_prog, t, n_samples, n_strategies, unique_strategy_id, strategy_index, n_grps, unique_grp_id, grp_index, n_states, n_patients)
 }
 
 C_indiv_ctstm_wlos <- function(R_disease_prog, strategy_idx, patient_idx, R_StateVal, dr, type, max_time) {
     .Call('_hesim_C_indiv_ctstm_wlos', PACKAGE = 'hesim', R_disease_prog, strategy_idx, patient_idx, R_StateVal, dr, type, max_time)
+}
+
+C_indiv_ctstm_starting <- function(R_disease_prog, strategy_idx, patient_idx, R_StateVal, dr, type) {
+    .Call('_hesim_C_indiv_ctstm_starting', PACKAGE = 'hesim', R_disease_prog, strategy_idx, patient_idx, R_StateVal, dr, type)
 }
 
 C_indiv_ctstm_los <- function(R_disease_prog, strategy_idx, patient_idx, dr) {
@@ -65,12 +77,12 @@ C_psm_sim_stateprobs <- function(R_psm_survival, n_samples, n_strategies, n_pati
     .Call('_hesim_C_psm_sim_stateprobs', PACKAGE = 'hesim', R_psm_survival, n_samples, n_strategies, n_patients, n_states, n_times)
 }
 
-C_psm_sim_wlos <- function(R_Psm, R_stateprobs, dr, type, categories) {
-    .Call('_hesim_C_psm_sim_wlos', PACKAGE = 'hesim', R_Psm, R_stateprobs, dr, type, categories)
-}
-
 C_statevals_sim <- function(R_StateVals, times, type) {
     .Call('_hesim_C_statevals_sim', PACKAGE = 'hesim', R_StateVals, times, type)
+}
+
+C_sim_ev <- function(R_stateprobs, R_statevals, dr, categories, times, method = "trapz") {
+    .Call('_hesim_C_sim_ev', PACKAGE = 'hesim', R_stateprobs, R_statevals, dr, categories, times, method)
 }
 
 C_test_trapz <- function(x, y) {
@@ -101,12 +113,12 @@ C_test_xptr_test_time_fun <- function(L) {
     .Call('_hesim_C_test_xptr_test_time_fun', PACKAGE = 'hesim', L)
 }
 
-C_test_obs_index <- function(R_input_data, strategy_index, patient_index, line_index = -1L, health_index = -1L) {
-    .Call('_hesim_C_test_obs_index', PACKAGE = 'hesim', R_input_data, strategy_index, patient_index, line_index, health_index)
+C_test_obs_index <- function(R_input_data, strategy_index, patient_index, health_index = -1L) {
+    .Call('_hesim_C_test_obs_index', PACKAGE = 'hesim', R_input_data, strategy_index, patient_index, health_index)
 }
 
-C_test_obs_index_ids <- function(R_input_data, strategy_index, patient_index, line_index, health_index, member) {
-    .Call('_hesim_C_test_obs_index_ids', PACKAGE = 'hesim', R_input_data, strategy_index, patient_index, line_index, health_index, member)
+C_test_obs_index_ids <- function(R_input_data, strategy_index, patient_index, health_index, member) {
+    .Call('_hesim_C_test_obs_index_ids', PACKAGE = 'hesim', R_input_data, strategy_index, patient_index, health_index, member)
 }
 
 test_quad_dnorm <- function(lower, upper) {
@@ -137,8 +149,8 @@ C_test_rtrunc_repeat <- function(lower, upper) {
     .Call('_hesim_C_test_rtrunc_repeat', PACKAGE = 'hesim', lower, upper)
 }
 
-C_test_rsurv <- function(time, est, type = "surv", time_inf = TRUE) {
-    .Call('_hesim_C_test_rsurv', PACKAGE = 'hesim', time, est, type, time_inf)
+C_test_rsurv <- function(time, cumhaz, time_inf = TRUE) {
+    .Call('_hesim_C_test_rsurv', PACKAGE = 'hesim', time, cumhaz, time_inf)
 }
 
 C_test_add_constant_int <- function(v, value) {
@@ -155,6 +167,10 @@ C_test_pv <- function(z, r, t1, t2) {
 
 C_test_seq <- function(from, to, by) {
     .Call('_hesim_C_test_seq', PACKAGE = 'hesim', from, to, by)
+}
+
+C_test_max_lt <- function(v, value) {
+    .Call('_hesim_C_test_max_lt', PACKAGE = 'hesim', v, value)
 }
 
 test_zeroin <- function() {

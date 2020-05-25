@@ -7,15 +7,14 @@
 params_lm(coefs, sigma = NULL)
 }
 \arguments{
-\item{coefs}{Matrix of samples from the posterior distribution of the 
-regression coefficients.}
+\item{coefs}{Matrix of samples of the coefficients under sampling uncertainty.}
 
-\item{sigma}{A vector of samples of the standard error of the regression model. 
-Must only be specified if the model is used to randomly simulate values 
+\item{sigma}{A vector of samples of the standard error of the regression model.
+Must only be specified if the model is used to randomly simulate values
 (rather than to predict means).}
 }
 \value{
-An object of class "params_lm", which is a list containing \code{coefs},
+An object of class \code{params_lm}, which is a list containing \code{coefs},
 \code{sigma}, and \code{n_samples}. \code{n_samples} is equal to the number of rows
 in \code{coefs}.
 }
@@ -24,11 +23,11 @@ Create a list containing the parameters of a fitted linear regression model.
 }
 \details{
 Fitted linear models are used to predict values, \eqn{y},
- as a function of covariates, \eqn{x},
+as a function of covariates, \eqn{x},
 \deqn{y = x^T\beta + \epsilon.}
 Predicted means are given by \eqn{x^T\hat{\beta}} where \eqn{\hat{\beta}}
-is the vector of estimated regression coefficients. Random samples are obtained by 
-sampling the error term from a normal distribution, 
+is the vector of estimated regression coefficients. Random samples are obtained by
+sampling the error term from a normal distribution,
 \eqn{\epsilon \sim N(0, \hat{\sigma}^2)}{\epsilon ~ N(0, \hat{\sigma}^2)}.
 }
 \examples{

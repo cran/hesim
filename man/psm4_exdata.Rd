@@ -4,12 +4,14 @@
 \name{psm4_exdata}
 \alias{psm4_exdata}
 \title{Example data for a 4-state partitioned survival model}
-\format{A list containing the following elements:
+\format{
+A list containing the following elements:
 \itemize{
 \item{Survival}{ A data frame containing patient information and time to 3 separate survival endpoints.}
 \item{Costs}{A list of data frames. The first data frame contains medical cost data and the
 second data frame contains drug cost data.}
-}}
+}
+}
 \usage{
 psm4_exdata
 }
@@ -38,17 +40,17 @@ The survival data frame contains a list of 3 survival curves, each containing th
 The cost list contains two data frames.The first data frame contains data on the
 medical costs by patient and health state, and contains the following columns:
 \describe{
- \item{patient_id}{An integer denoting the id of the patient.}
-  \item{female}{An indicator variable equal to 1 if the patient is female and 0 otherwise.}
-  \item{state_name}{A categorical variable denoting the three possible health states.}
-  \item{costs}{Annualized medical costs.}
- }
- 
+\item{patient_id}{An integer denoting the id of the patient.}
+\item{female}{An indicator variable equal to 1 if the patient is female and 0 otherwise.}
+\item{state_name}{A categorical variable denoting the three possible health states.}
+\item{costs}{Annualized medical costs.}
+}
+
 The second data frame contains data on the drug costs associated with each treatment strategy.
 \describe{
- \item{strategy_id}{The id of each treatment strategy.}
- \item{costs}{Annualized drug costs.}
- }
+\item{strategy_id}{The id of each treatment strategy.}
+\item{costs}{Annualized drug costs.}
+}
 }
 
 \keyword{datasets}

@@ -16,8 +16,7 @@ Rcpp::DataFrame C_statevals_sim(Rcpp::Environment R_StateVals,
                            std::string type){
   // Initialize
   hesim::statevals statevals(R_StateVals);
-  Rcpp::List R_input_mats = Rcpp::as<Rcpp::List>(R_StateVals["input_mats"]);
-  hesim::statmods::obs_index obs_index(R_input_mats);
+  hesim::statmods::obs_index obs_index(hesim::statmods::get_id_object(R_StateVals));
 
   // Storage
   int n_samples = statevals.statmod_->get_n_samples();
@@ -38,7 +37,7 @@ Rcpp::DataFrame C_statevals_sim(Rcpp::Environment R_StateVals,
         for (int h = 0; h < obs_index.n_healthvals_; ++h){
           int time_index = 0;
           for (int t = 0; t < times.size(); ++t){
-            int obs = obs_index(k, 0, i, h, time_index);
+            int obs = obs_index(k, i, h, time_index);
             strategy_id_vec[index] = obs_index.get_strategy_id();
             sample_vec[index] = s;
             state_id_vec[index] = obs_index.get_health_id();
@@ -66,3 +65,30 @@ Rcpp::DataFrame C_statevals_sim(Rcpp::Environment R_StateVals,
     Rcpp::_["stringsAsFactors"] = false
   );  
 }
+
+/***************************************************************************//** 
+ * @ingroup statevals
+ * Simulate weighted length of stay from simulated health state probabilities.
+ * This function is exported to @c R and used to simulate costs and utilities.
+ * @param R_stateprobs Simulated state probabilities from @c R.
+ * @param statevals A list of @c R objects of class @c StateVals.
+ * @param dr Discount rate.
+ * @param categories Categories with a given @p type. For QALYs, there is only one
+ * category ("qalys"), but for costs this could consist of different cost categories
+ * such as drug acquisition and administration costs, resource use costs, etc. 
+ * @return An @c R data frame with columns equivalent to the data members in
+ * hesim::wlos_out_out.
+ ******************************************************************************/ 
+// [[Rcpp::export]]
+Rcpp::DataFrame C_sim_ev(Rcpp::DataFrame R_stateprobs,
+                         Rcpp::List R_statevals, 
+                         std::vector<double> dr,
+                         std::vector<std::string> categories,
+                         std::vector<double> times,
+                         std::string method = "trapz"){
+  hesim::ev ev(R_statevals);
+  hesim::stateprobs_out stprobs(R_stateprobs);
+  hesim::ev_out out = ev(stprobs, times, dr, categories, method);
+  return out.create_R_data_frame();
+}
+

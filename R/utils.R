@@ -1,3 +1,36 @@
+# Check ------------------------------------------------------------------------
+#' Input validation for class objects
+#' 
+#' \code{check} is a generic function for validating the inputs of class objects.
+#' @param object object to check.
+#' @param inner_class When checking a list of objects, the class of elements within
+#' the inner most list.
+#' @param ... Further arguments passed to or from other methods.
+#' 
+#' @return If validation is successful, returns the object in question; otherwise,
+#' informs the user that an error has occurred.  
+#' @keywords internal
+check <- function (object, ...) {
+  UseMethod("check")
+}
+
+check_is_class <- function(object, class, name = NULL){
+  if (is.null(name)){
+    name <- class
+  }
+  if (!inherits(object, class)){
+    stop(paste0("'", name, "' must be of class '", class, "'"),
+         call. = FALSE)
+  }  
+}
+
+check_scalar <- function(x, name){
+  if(!(is.atomic(x) && length(x) == 1L)){
+    stop(paste0(name, " must be a scalar."))
+  }
+}
+
+# Additional utility methods ---------------------------------------------------
 #' Absorbing states
 #' 
 #' Returns a vector of absorbing states from a transition matrix.
@@ -6,21 +39,6 @@
 #' @keywords internal
 absorbing <- function(trans_mat){
   which(apply(trans_mat, 1, function(x) all(is.na(x))))
-}
-
-#' Input validation for class objects
-#' 
-#' \code{check} is a generic function for validating the inputs of class objects.
-#' @param object object to check.
-#' @param inner_class When checking a list of objects, the class of elements within
-#' the inner most list.
-#' @param ... Further arguments passed to or from other methods. Currently unused.
-#' 
-#' @return If validation is successful, returns the object in question; otherwise,
-#' informs the user that an error has occurred.  
-#' @keywords internal
-check <- function (object, ...) {
-  UseMethod("check")
 }
 
 check_dr <- function(dr){
@@ -48,7 +66,7 @@ create_object_list <- function(...){
 check_object_list <- function(x, inner_class){
   for (i in 1:length(x)){
     if(!inherits(x[[i]], inner_class)){
-      msg <- paste0("Each element in ... must be of class '", inner_class, "'")
+      msg <- paste0("Each element in list must be of class '", inner_class, "'")
       stop(msg, call. = FALSE)
     }
   } 
@@ -127,4 +145,105 @@ flatten_lists <- function(x) {
   if (!inherits(x, "list")) return(list(x))
   else return(unlist(c(lapply(x, flatten_lists)), recursive = FALSE))
 }
+
+# Get the object containing ID attributes
+get_id_object <- function(x){
+  if (is.null(x$input_data)){
+    return(x$params)
+  } else{
+    return(x$input_data)
+  }
+}
+
+get_id_name <- function(x){
+  if (is.null(x$input_data)){
+    return("params")
+  } else{
+    return("input_data")
+  }
+}
+
+# Sample from a posterior distribution
+sample_from_posterior <- function(n, n_samples){
+  if (n < n_samples){
+    return(sample.int(n_samples, n, replace = FALSE))
+  } else if (n > n_samples) {
+    warning(paste0("The number of requested draws for the probabilistic ",
+                   "sensitivity analysis (PSA), 'n', is larger than the number ",
+                   "of previously sampled values from the probability ",
+                   "distribution of interest. Samples for the PSA have ",
+                   "consequently been drawn with replacement."),
+            call. = FALSE)
+    return(sample.int(n_samples, n, replace = TRUE))
+  } else{
+    return(1:n)
+  }
+}
+
+is_whole_number <- function(x, tol = .Machine$double.eps^0.5) {
+  abs(x - round(x)) < tol
+}
+
+is_1d_vector <- function(x){
+  is.atomic(x) && length(dim(x)) <= 1
+}
+
+is_3d_array <- function(x){
+  is.atomic(x) && length(dim(x)) == 3
+}
+
+check_patient_wt <- function(object, result){
+  if (is.null(get_id_object(object)[["patient_wt"]])) {
+    result[, ("patient_wt") := NULL]
+  }
+}
+
+get_n_samples <- function (coefs) {
+  UseMethod("get_n_samples")
+}
+
+# List of matrices -------------------------------------------------------------
+matlist <- function(x){
+  class(x) <- "matlist"
+  return(x)
+}
+
+get_n_samples.matlist <- function(coefs){
+  stopifnot(is.list(coefs))
+  if (!is.matrix(coefs[[1]])){
+    stop("'coefs' must be a list of matrices.", call. = FALSE)
+  }
+  return(nrow(coefs[[1]]))
+}
+
+get_n_samples.array <- function(coefs){
+  stopifnot(is_3d_array(coefs))
+  return(dim(coefs)[1])
+}
+
+check.matlist <- function(coefs){
+  # 'coefs' must be a list (and this has been cheked in get_n_samples())
+  
+  # Each element of 'coefs' must be a matrix
+  matrix_bool <- unlist(lapply(coefs, is.matrix))
+  if(sum(!matrix_bool) > 0){
+    stop("'coefs' must be a list of matrices.",
+         call. = FALSE)
+  } 
+  
+  # Number of rows in each matrix element of 'coefs' must be equal
+  coefs_nrows <- unlist(lapply(coefs, nrow))
+  if(!all(coefs_nrows[[1]] == coefs_nrows)){
+    stop("Number of rows in all 'coefs' matrices must be equal.",
+         call. = FALSE)
+  } 
+}
+
+check.array <- function(coefs){
+  # 'coefs' must be a 3D array (and this has been cheked in get_n_samples())
+  
+  # There are currently no other checks
+}
+
+
 
