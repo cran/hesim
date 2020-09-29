@@ -128,6 +128,6 @@ head(psm$qalys_)
 
 ## -----------------------------------------------------------------------------
 ce_sim <- psm$summarize()
-icea_out <- icea(ce_sim, dr_qalys = .03, dr_costs = .03)
-icea_pw_out <- icea_pw(ce_sim, comparator = 1, dr_qalys = .03, dr_costs = .03)
+cea_out <- cea(ce_sim, dr_qalys = .03, dr_costs = .03)
+cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = .03, dr_costs = .03)
 

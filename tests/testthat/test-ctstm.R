@@ -155,25 +155,31 @@ test_that("IndivCtstmTrans - transition specific", {
                                         trans_mat = tmat,
                                         point_estimate = TRUE)  
   
-  # hazard
+  # Hazard
   hesim_hazard <- mstate_list$hazard(3)
   expect_equal(hesim_hazard[trans == 1][1]$hazard,
                summary(msfit_list[[1]], type = "hazard", t = 3, ci = FALSE)[[1]][1, "est"])
   expect_equal(hesim_hazard[trans == 2][1]$hazard,
                summary(msfit_list[[2]], type = "hazard", t = 3, ci = FALSE)[[1]][1, "est"])
 
-  # cumulative hazard
+  # Cumulative hazard
   hesim_cumhazard <- mstate_list$cumhazard(5)
   expect_equal(hesim_cumhazard[trans == 1][1]$cumhazard,
                summary(msfit_list[[1]], type = "cumhaz", t = 5)[[1]][1, "est"])
   expect_equal(hesim_cumhazard[trans == 2][1]$cumhazard,
                summary(msfit_list[[2]], type = "cumhaz", t = 5)[[1]][1, "est"])
   
-  # State probabilities 
+  # State probabilities only
   stprobs <- mstate_list$sim_stateprobs(t = c(0, 1, 2, 3))
   expect_true(inherits(stprobs, "data.table"))
   stprobs <- mstate_list$sim_stateprobs(t = c(0, 1, 2, 3),
                                         max_t = 2)
+  expect_true(inherits(stprobs, "data.table"))
+  
+  # Disease progression and then state probabilities
+  disprog <- mstate_list$sim_disease(max_t = 2)
+  expect_true(inherits(disprog, "data.table"))
+  stprobs <- mstate_list$sim_stateprobs(t = c(0, 2), disprog = disprog)
   expect_true(inherits(stprobs, "data.table"))
   
   # No errors
@@ -486,14 +492,14 @@ test_that("Simulate costs and QALYs", {
   expect_error(ictstm$summarize(), NA)
   
   # Cost-effectiveness analysis
-  icea <- icea(ce_summary, dr_costs = 0, dr_qalys = 0)
-  expect_true("mce" %in% names(icea))
-  icea <- icea(ce_summary, dr_qalys = 0, dr_costs = .03)
-  expect_true("mce" %in% names(icea))
+  cea <- cea(ce_summary, dr_costs = 0, dr_qalys = 0)
+  expect_true("mce" %in% names(cea))
+  cea <- cea(ce_summary, dr_qalys = 0, dr_costs = .03)
+  expect_true("mce" %in% names(cea))
   
-  icea_pw <- icea_pw(ce_summary, comparator = 1, 
-                     dr_costs = 0, dr_qalys = 0)
-  expect_true("ceac" %in% names(icea_pw))
+  cea_pw <- cea_pw(ce_summary, comparator = 1, 
+                   dr_costs = 0, dr_qalys = 0)
+  expect_true("ceac" %in% names(cea_pw))
 })
 
 ## With a joint survival model

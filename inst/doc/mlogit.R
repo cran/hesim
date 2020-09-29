@@ -117,10 +117,10 @@ econmod$sim_costs(dr = .03)
 
 ## -----------------------------------------------------------------------------
 ce_sim <- econmod$summarize(by_grp = TRUE)
-icea_pw_out <- icea_pw(ce_sim, comparator = 1, dr_qalys = .03, dr_costs = .03)
+cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = .03, dr_costs = .03)
 
 ## ----icerHeterogeneity, fig.width = 7, fig.height = 4-------------------------
-icers <- merge(icea_pw_out$summary,
+icers <- merge(cea_pw_out$summary,
                hesim_dat$patients[, .(grp_id, age, female)],
                by = "grp_id")
 icers[, gender := factor(female, 

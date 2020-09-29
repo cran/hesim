@@ -344,7 +344,7 @@ Psm <- R6::R6Class("Psm",
       stateprobs <- data.table(res$stateprobs)
       stateprobs[, state_id := state_id + 1]
       stateprobs[, sample := sample + 1]
-      check_patient_wt(self, stateprobs)
+      check_patient_wt(self$survival_models, stateprobs)
       self$stateprobs_ <- stateprobs[]
       setattr(self$stateprobs_, "class", 
               c("stateprobs", "data.table", "data.frame"))
@@ -360,8 +360,9 @@ Psm <- R6::R6Class("Psm",
     #' @return An instance of `self` with simulated output of class [qalys] stored
     #' in `qalys_`.    
     sim_qalys = function(dr = .03, integrate_method = c("trapz", "riemann_left", "riemann_right"),
-                         lys = FALSE){
-      self$qalys_ <- sim_qalys(self$stateprobs_, self$utility_model, dr, integrate_method)
+                         lys = TRUE){
+      self$qalys_ <- sim_qalys(self$stateprobs_, self$utility_model, dr, 
+                               integrate_method, lys)
       invisible(self)
     },
     

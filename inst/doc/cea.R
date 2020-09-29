@@ -38,19 +38,54 @@ enmb <- ce[, .(enmb = mean(nmb)), by = c("strategy", "grp")]
 enmb <- dcast(enmb, strategy ~ grp, value.var = "enmb")
 print(enmb)
 
-## ----icea, warning = FALSE, message = FALSE-----------------------------------
+## ----cea, warning = FALSE, message = FALSE------------------------------------
 library("hesim")
 ktop <- 200000
-icea <-  icea(ce, k = seq(0, ktop, 500), sample = "sample", strategy = "strategy",
-                 grp = "grp", e = "qalys", c = "cost")
+cea <-  cea(ce, k = seq(0, ktop, 500), sample = "sample", strategy = "strategy",
+            grp = "grp", e = "qalys", c = "cost")
 
-## ----icea_pw------------------------------------------------------------------
-icea_pw <-  icea_pw(ce,  k = seq(0, ktop, 500), comparator = "Strategy 1",
-                       sample = "sample", strategy = "strategy", grp = "grp",
-                    e = "qalys", c = "cost")
+## ----cea_pw-------------------------------------------------------------------
+cea_pw <-  cea_pw(ce,  k = seq(0, ktop, 500), comparator = "Strategy 1",
+                  sample = "sample", strategy = "strategy", grp = "grp",
+                  e = "qalys", c = "cost")
+
+## ----cea_summary--------------------------------------------------------------
+print(cea$summary)
+
+## ----cea_custom---------------------------------------------------------------
+ce[, .(median_cost = median(cost), median_qalys = median(qalys)),
+   by = c("strategy", "grp")]
+
+## ----icer---------------------------------------------------------------------
+print(cea_pw$summary)
+
+## -----------------------------------------------------------------------------
+head(cea_pw$delta)
+
+## ----ceplane_plot, fig.width = 6, fig.height = 4------------------------------
+library("ggplot2")
+library("scales")
+theme_set(theme_minimal())
+
+ylim <- max(cea_pw$delta[, ic]) * 1.1
+xlim <- ceiling(max(cea_pw$delta[, ie]) * 1.1)
+ggplot(cea_pw$delta, aes(x = ie, y = ic, col = factor(strategy))) + 
+  geom_jitter(size = .5) + 
+  facet_wrap(~grp) + 
+  xlab("Incremental QALYs") + 
+  ylab("Incremental cost") +
+  scale_y_continuous(label = scales::dollar, 
+                     limits = c(-ylim, ylim)) +
+  scale_x_continuous(limits = c(-xlim, xlim), 
+                     breaks = seq(-6, 6, 2)) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(name = "Strategy") +
+  geom_abline(slope = 150000, linetype = "dashed") +
+  geom_hline(yintercept = 0) + geom_vline(xintercept = 0)
 
 ## ----mce_example_setup, echo = -1, warning = FALSE, message = FALSE-----------
 library("knitr")
+
 random_rows <- sample(1:n_samples, 10)
 nmb_dt <- dcast(ce[sample %in% random_rows & grp == "Group 2"], 
                 sample ~ strategy, value.var = "nmb")
@@ -64,21 +99,38 @@ mce <- prop.table(table(nmb_dt$maxj))
 print(mce)
 
 ## ----mce_plot, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
-library("ggplot2")
-library("scales")
-theme_set(theme_minimal())
-ggplot2::ggplot(icea$mce, aes(x = k, y = prob, col = factor(strategy))) +
-  geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
+ggplot(cea$mce, aes(x = k, y = prob, col = factor(strategy))) +
+  geom_line() + 
+  facet_wrap(~grp) + 
+  xlab("Willingness to pay") +
   ylab("Probability most cost-effective") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
-  theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
+  scale_x_continuous(breaks = seq(0, ktop, 100000), 
+                     label = scales::dollar) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(name = "Strategy")
+
+## ----ceac_plot, fig.width = 6, fig.height = 4---------------------------------
+ggplot(cea_pw$ceac, aes(x = k, y = prob, col = factor(strategy))) +
+  geom_line() + 
+  facet_wrap(~grp) + 
+  xlab("Willingness to pay") +
+  ylab("Probability most cost-effective") +
+  scale_x_continuous(breaks = seq(0, ktop, 100000), 
+                     label = scales::dollar) +
+  theme(legend.position = "bottom") + 
+  scale_colour_discrete(name = "Strategy")
 
 ## ----ceaf_plot, fig.width = 6, fig.height = 4---------------------------------
-ggplot2::ggplot(icea$mce[best == 1], aes(x = k, y = prob, col = strategy)) +
-  geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
+
+ggplot(cea$mce[best == 1], aes(x = k, y = prob, col = strategy)) +
+  geom_line() + 
+  facet_wrap(~grp) + 
+  xlab("Willingness to pay") +
   ylab("Probability most cost-effective") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
-  theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
+  scale_x_continuous(breaks = seq(0, ktop, 100000), 
+                     label = scales::dollar) +
+  theme(legend.position = "bottom") +
+  scale_colour_discrete(name = "Strategy")
 
 ## ----evpi_example_a-----------------------------------------------------------
 strategymax_g2 <- which.max(enmb[[3]])
@@ -94,7 +146,7 @@ print(enmbci)
 print(enmbpi - enmbci)
 
 ## ----evpi_plot, fig.width = 6, fig.height = 4---------------------------------
-ggplot2::ggplot(icea$evpi, aes(x = k, y = evpi)) +
+ggplot(cea$evpi, aes(x = k, y = evpi)) +
   geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
   ylab("Expected value of perfect information") +
   scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
@@ -103,46 +155,17 @@ ggplot2::ggplot(icea$evpi, aes(x = k, y = evpi)) +
 
 ## ----totevpi, fig.width = 6, fig.height = 4-----------------------------------
 w_dt <- data.table(grp = paste0("Group ", seq(1, 2)), w = c(0.25, .75))
-evpi <- icea$evpi
+evpi <- cea$evpi
 evpi <- merge(evpi, w_dt, by = "grp")
 totevpi <- evpi[,lapply(.SD, weighted.mean, w = w),
                 by = "k", .SDcols = c("evpi")]
-ggplot2::ggplot(totevpi, aes(x = k, y = evpi)) +
+ggplot(totevpi, aes(x = k, y = evpi)) +
   geom_line() + xlab("Willingness to pay") +
   ylab("Total EVPI") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
+  scale_x_continuous(breaks = seq(0, ktop, 100000), 
+                     label = scales::dollar) +
   scale_y_continuous(label = scales::dollar) +
   theme(legend.position = "bottom") 
-
-## ----icea_summary-------------------------------------------------------------
-print(icea$summary)
-
-## ----icea_custom--------------------------------------------------------------
-ce[, .(median_cost = median(cost), median_qalys = median(qalys)),
-   by = c("strategy", "grp")]
-
-## ----ceplane_plot, fig.width = 6, fig.height = 4------------------------------
-head(icea_pw$delta)
-ylim <- max(icea_pw$delta[, ic]) * 1.1
-xlim <- ceiling(max(icea_pw$delta[, ie]) * 1.1)
-ggplot2::ggplot(icea_pw$delta, aes(x = ie, y = ic, col = factor(strategy))) + 
-  geom_jitter(size = .5) + facet_wrap(~grp) + 
-  xlab("Incremental QALYs") + ylab("Incremental cost") +
-  scale_y_continuous(label = dollar, limits = c(-ylim, ylim)) +
-  scale_x_continuous(limits = c(-xlim, xlim), breaks = seq(-6, 6, 2)) +
-  theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy") +
-  geom_abline(slope = 150000, linetype = "dashed") +
-  geom_hline(yintercept = 0) + geom_vline(xintercept = 0)
-
-## ----ceac_plot, fig.width = 6, fig.height = 4---------------------------------
-ggplot2::ggplot(icea_pw$ceac, aes(x = k, y = prob, col = factor(strategy))) +
-  geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
-  ylab("Probability most cost-effective") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
-  theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
-
-## ----icer---------------------------------------------------------------------
-print(icea_pw$summary)
 
 ## ----totenmb------------------------------------------------------------------
 # Compute total expected NMB with one-size fits all treatment

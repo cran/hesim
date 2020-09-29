@@ -182,12 +182,12 @@ ce <- ictstm$summarize()
 print(ce)
 
 ## -----------------------------------------------------------------------------
-icea <- icea(ce, dr_qalys = .03, dr_costs = .03)
-icea_pw <- icea_pw(ce, dr_qalys = .03, dr_costs = .03, comparator = 1)
+cea <- cea(ce, dr_qalys = .03, dr_costs = .03)
+cea_pw <- cea_pw(ce, dr_qalys = .03, dr_costs = .03, comparator = 1)
 
 ## ----ceac_plot, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
 library("ggplot2")
-ggplot2::ggplot(icea_pw$ceac, aes(x = k, y = prob, col = factor(strategy_id))) +
+ggplot(cea_pw$ceac, aes(x = k, y = prob, col = factor(strategy_id))) +
   geom_line() + xlab("Willingness to pay") +
   ylab("Probability most cost-effective") +
   scale_x_continuous(breaks = seq(0, 200000, 100000), label = scales::dollar) +

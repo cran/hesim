@@ -135,6 +135,8 @@ CohortDtstmTrans <- R6::R6Class("CohortDtstmTrans",
       stprobs[, sample := sample + 1]
       stprobs[, state_id := state_id + 1]
       check_patient_wt(self, stprobs)
+      setattr(stprobs, "class", 
+              c("stateprobs", "data.table", "data.frame"))
       return(stprobs[])
     }
   )
@@ -313,7 +315,7 @@ CohortDtstm <- R6::R6Class("CohortDtstm",
     #' in `qalys_`.
     sim_qalys = function(dr = .03,
                          integrate_method = c("trapz", "riemann_left", "riemann_right"),
-                         lys = FALSE){
+                         lys = TRUE){
       self$qalys_ <- sim_qalys(self$stateprobs_, self$utility_model, dr, integrate_method,
                                lys)
       invisible(self)

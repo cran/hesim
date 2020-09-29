@@ -97,8 +97,9 @@ replace_C <- function(x, complement){
 #' equal to 1 minus the sum of the probabilities of all other rows can be 
 #' conveniently referred to as `C`. 
 #' 
-#' @return Returns a `data.table` where each column is an element of the 
-#' transition probability matrix with elements ordered rowwise. 
+#' @return Returns a `tpmatrix` object that inherits from `data.table`
+#' where each column is an element of the transition probability matrix with
+#'  elements ordered rowwise. 
 #' 
 #' @examples 
 #' p <- c(.7, .6)
@@ -112,7 +113,61 @@ tpmatrix <- function(...){
   m_def <- define_tpmatrix(...)
   m <- as.data.table(transform_dots(m_def, as.list(parent.frame())))
   replace_C(m, attr(m_def, "complement"))
+  setattr(m, "class", c("tpmatrix", "data.table", "data.frame"))
   return(m)
+}
+
+#' Transition probability matrix IDs
+#' 
+#' Creates ID variables for each row returned by `tpmatrix()`. This function is
+#'  most conveniently used along with `tpmatrix()` to construct a 
+#'  `tparams_transprobs()` object.
+#' 
+#' 
+#' @param object An object of class `expanded_hesim_data` returned by 
+#' `expand.hesim_data()`. This dataset must either be expanded by treatment
+#' strategies, patients, and optionally time intervals.
+#' @param n_samples The number of parameters samples used for the probabilistic
+#' sensitivity analysis (PSA).
+#' 
+#' @return Returns a `data.table` with the same columns in `object` repeated
+#' `n_samples` times. That is, to facilitate creation of a `tparams_transprobs()`
+#' object,  there is one row for each parameter sample,
+#' treatment strategy, patient, and optionally time interval.
+#' 
+#' @examples 
+#' strategies <- data.frame(strategy_id = c(1, 2))
+#' patients <- data.frame(patient_id = seq(1, 3), age = c(65, 50, 75),
+#'                         gender = c("Female", "Female", "Male"))
+#' hesim_dat <- hesim_data(strategies = strategies,
+#'                         patients = patients)
+#' input_data <- expand(hesim_dat, by = c("strategies", "patients"))    
+#' tpmatrix_id(input_data, n_samples = 2)                   
+#' @seealso [tpmatrix()], [tparams_transprobs()], [expand.hesim_data()]
+#' @export
+tpmatrix_id <- function(object, n_samples){
+  # Checks
+  check_is_class(object, "expanded_hesim_data", "object")
+  if (!identical(attr(object, "id_vars"), c("strategy_id", "patient_id")) &&
+      !identical(attr(object, "id_vars"), c("strategy_id", "patient_id", "time_id"))
+  ) {
+    stop(paste0("'object' must be either be expanded by 'strategy_id', 'patient_id', ", 
+                "and optionally 'time_id'."), 
+         call. = FALSE)
+  }
+  
+  # Create data.table
+  id_names <- c("strategy_id", "patient_id", "grp_id", "patient_wt", 
+                    "time_id", "time_start", "time_stop")
+  cols_to_keep <- match(id_names, colnames(object))
+  cols_to_keep <- cols_to_keep[!is.na(cols_to_keep)]
+  
+  id_dt <- object[rep(1:nrow(object), times = n_samples), cols_to_keep, 
+                  with = FALSE]
+  id_dt[, sample := rep(1:n_samples, each = nrow(object))]
+  setcolorder(id_dt, c("sample", colnames(id_dt)[!ncol(id_dt)]))
+  setattr(id_dt, "class", c("tpmatrix_id", "data.table", "data.frame"))
+  return(id_dt[, ])
 }
 
 # Random number generation -----------------------------------------------------
@@ -212,11 +267,15 @@ check_eval_rng <- function(object){
 #' @param params A list containing the values of parameters for random number 
 #' generation. Each element of the list should either be a `vector`,
 #'  `matrix`, `data.frame`, or `data.table`
+#' @param check Whether to check the returned output so that (i) it returns a list
+#' and (ii) each element has the correct length or number of rows. Default is `FALSE`,
+#' meaning that any output can be returned. This is always `TRUE` when used inside
+#' [define_model()]. 
 #' @export
 #' @rdname define_rng
-eval_rng <- function(x, params = NULL){
+eval_rng <- function(x, params = NULL, check = FALSE){
   x <- eval(x$expr, envir = c(x[-1], params)) # -1 is the position of "expr"
-  check_eval_rng(x)
+  if (check) check_eval_rng(x)
   return(x)
 }
 
@@ -596,7 +655,7 @@ eval_tparams <- function(x, input_data, rng_params){
 #' Define and evaluate model expression
 #' 
 #' A model expression is defined by specifying random number generation functions 
-#' for a probabilistic sensitivity analysis and transformations of the sampled 
+#' for a probabilistic sensitivity analysis (PSA) and transformations of the sampled 
 #' parameters as a function of `input_data`. The unevaluated expressions
 #' are evaluated with `eval_model()` and used to generate the model inputs needed to 
 #' create an economic model.
@@ -622,21 +681,17 @@ eval_tparams <- function(x, input_data, rng_params){
 #'  The direct output of `eval_model()` can also be useful for understanding and debugging 
 #'  model definitions, but it is not used directly for simulation.
 #'  
-#'  
-#'  A `model_def` object would typically be defined in four steps by specifying:
-#'  1. *Data* (`input_data`) of class [expanded_hesim_data][expand.hesim_data()] 
-#'  consisting of the treatment strategies and patient population
-#'  2. *Parameters* (`params`) objects storing the values of all parameters used in the model
-#'  3. *Random number generation* ([define_rng()]) expressions that randomly 
-#'  sample values of the parameters from suitable probability distributions for probabilistic
-#'   sensitivity analysis 
-#'  4. *Transformed parameter* ([define_tparams()]) expressions that transform
-#'   the parameter estimates into values used for simulation
-#'  
-#'  Step 2 can be omitted if underlying parameter values are defined in steps 3.
-#'  The output of step 4 is used to instantiate the economic model (or a portion 
-#'  of an economic model) as a function of a transition probability matrix,
-#'  utilities, and/or costs.
+#'  Economic models are constructed as a function of input data and parameters:
+#'  1. *Input data*: Objects of class [expanded_hesim_data][expand.hesim_data()] 
+#'  consisting of the treatment strategies and patient population.
+#'  2. *Parameters*: The underlying parameter estimates from the literature 
+#'  are first stored in a list (`params` argument). Random number generation
+#'  is then used to sample the parameters from suitable probability distributions
+#'  for the PSA (`rng_def` argument). Finally, the sampled parameters are
+#'  transformed as a function of the input data into values (e.g., elements of a
+#'   transition probability matrix) used for the simulation (`tparams_def` argument).
+#'   The `params` argument can be omitted if the underlying parameters values are
+#'  defined inside a `define_rng()` block.
 #' 
 #' @return `define_model()` returns an object of class `model_def`, 
 #' which is a list containing the arguments to the function. `eval_model()` returns
@@ -765,7 +820,7 @@ eval_model <- function(x, input_data){
   data <- data.table(input_data)
   
   # Step 1: RNG for parameters
-  params <- eval_rng(x$rng_def, x$params)
+  params <- eval_rng(x$rng_def, x$params, check = TRUE)
   params_len <- lapply(params, function (z) if (is_1d_vector(z)) 1 else ncol(z))
   params_class <- lapply(params, class)
   if(any(!unlist(params_class) %in% c("integer", "numeric", "matrix",

@@ -1,5 +1,5 @@
 ## ---- out.width = "700px", echo = FALSE---------------------------------------
-knitr::include_graphics("getting-started.png")
+knitr::include_graphics("markov-cohort.png")
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 library("hesim")
@@ -10,10 +10,6 @@ patients <- data.table(patient_id = 1)
 hesim_dat <- hesim_data(strategies = strategies,
                         patients = patients)
 print(hesim_dat)
-
-## -----------------------------------------------------------------------------
-data <- expand(hesim_dat, by = c("strategies", "patients"))
-head(data)
 
 ## -----------------------------------------------------------------------------
 trans_mono <- matrix(c(1251, 350, 116, 17,
@@ -53,6 +49,10 @@ rng_def <- define_rng({
 }, n = 1000)
 
 ## -----------------------------------------------------------------------------
+input_data <- expand(hesim_dat, by = c("strategies", "patients"))
+head(input_data)
+
+## -----------------------------------------------------------------------------
 tparams_def <- define_tparams({
   ## The treatment effect (relative risk) is transformed so that it varies by 
   ## strategies and only applies for the first 2 years (Monotherapy is 
@@ -62,14 +62,14 @@ tparams_def <- define_tparams({
   list(
     tpmatrix = tpmatrix(
       C, p_mono$A_B * rr, p_mono$A_C * rr, p_mono$A_D * rr,
-      0, C, p_mono$B_C * rr, p_mono$B_D * rr,
-      0, 0, C, p_mono$C_D * rr,
-      0, 0, 0, 1
+      0, C,               p_mono$B_C * rr, p_mono$B_D * rr,
+      0, 0,               C,               p_mono$C_D * rr,
+      0, 0,               0,               1
     ),
     utility = u,
     costs = list(
         drug = ifelse(strategy_name == "Monotherapy" | time > 2,
-                    c_zido, c_zido + c_lam),
+                      c_zido, c_zido + c_lam),
         community_medical = c_cmed,
         direct_medical = c_dmed
     )
@@ -82,7 +82,7 @@ mod_def <- define_model(tparams_def = tparams_def,
                         params = params)
 
 ## ----econmod------------------------------------------------------------------
-econmod <- create_CohortDtstm(mod_def, data)
+econmod <- create_CohortDtstm(mod_def, input_data)
 
 ## ----simStateprobs, fig.width = 7, fig.height = 6-----------------------------
 econmod$sim_stateprobs(n_cycles = 20)
@@ -108,17 +108,17 @@ ggplot(stateprob_summary, aes(x = t, y = prob_mean)) +
 econmod$sim_qalys(dr = 0, integrate_method = "riemann_right")
 econmod$sim_costs(dr = 0.06, integrate_method = "riemann_right")
 
-## ----icea---------------------------------------------------------------------
+## ----cea----------------------------------------------------------------------
 ce_sim <- econmod$summarize()
 wtp <- seq(0, 25000, 500)
-icea_pw_out <- icea_pw(ce_sim, comparator = 1, dr_qalys = 0, dr_costs = .06,
-                       k = wtp)
+cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0, dr_costs = .06,
+                     k = wtp)
 
 ## ----icer---------------------------------------------------------------------
-icer_tbl(icea_pw_out)
+icer_tbl(cea_pw_out)
 
 ## ----ceac, fig.width = 6, fig.height = 4--------------------------------------
-ggplot(icea_pw_out$ceac, 
+ggplot(cea_pw_out$ceac, 
        aes(x = k, y = prob, 
            col = factor(strategy_id, labels = strategies$strategy_name[-1]))) +
   geom_line()  + xlab("Willingness to pay") +
