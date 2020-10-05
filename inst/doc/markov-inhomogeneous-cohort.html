@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2020-09-28" />
+<meta name="date" content="2020-10-01" />
 
 <title>Time inhomogeneous Markov cohort models</title>
 
@@ -310,7 +310,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 <h1 class="title toc-ignore">Time inhomogeneous Markov cohort models</h1>
-<h4 class="date">2020-09-28</h4>
+<h4 class="date">2020-10-01</h4>
 
 
 <div id="TOC">
@@ -961,7 +961,7 @@ tp(t_u) &amp;= 1 - exp\{\lambda (t-u)^\gamma -\lambda t^\gamma\} \\
 <pre><code>##    strategy_id grp_id     mean
 ## 1:           1      2 515.5713
 ## 2:           2      2 613.4733</code></pre>
-<p>However, time to construct the transition model was 2.5 times faster. Although both are quite fast (time in the table is in seconds), this difference would become more pronounced as the number of parameter samples, treatment strategies, patients, and/or distinct time periods increased.</p>
+<p>However, time to construct the transition model was 2.3 times faster. Although both are quite fast (time in the table is in seconds), this difference would become more pronounced as the number of parameter samples, treatment strategies, patients, and/or distinct time periods increased.</p>
 <div class="sourceCode" id="cb45"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1"></a><span class="kw">data.table</span>(</span>
 <span id="cb45-2"><a href="#cb45-2"></a>  <span class="dt">Method =</span> <span class="kw">c</span>(<span class="st">&quot;define_model()&quot;</span>, <span class="st">&quot;Custom tpmatrix()&quot;</span>),</span>
 <span id="cb45-3"><a href="#cb45-3"></a>  <span class="kw">rbind</span>(</span>
@@ -994,13 +994,13 @@ elapsed
 define_model()
 </td>
 <td style="text-align:right;">
-2.992
+2.741
 </td>
 <td style="text-align:right;">
-0.845
+0.761
 </td>
 <td style="text-align:right;">
-4.193
+3.535
 </td>
 </tr>
 <tr>
@@ -1008,13 +1008,13 @@ define_model()
 Custom tpmatrix()
 </td>
 <td style="text-align:right;">
-1.109
+1.059
 </td>
 <td style="text-align:right;">
-0.418
+0.397
 </td>
 <td style="text-align:right;">
-1.648
+1.548
 </td>
 </tr>
 </tbody>

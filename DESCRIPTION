@@ -1,7 +1,7 @@
 Package: hesim
 Type: Package
 Title: Health-Economic Simulation Modeling and Decision Analysis
-Version: 0.4.0
+Version: 0.4.1
 Authors@R: c(
     person("Devin", "Incerti", , "devin.incerti@gmail.com", role = c("aut", "cre")),
     person("Jeroen P.", "Jansen", role = "aut"),
@@ -22,7 +22,7 @@ Description: A modular and computationally efficient R package for
   <doi:10.1111/j.1524-4733.2008.00358.x>. Use of C++ and data.table
   make individual-patient simulation, probabilistic sensitivity analysis, 
   and incorporation of patient heterogeneity fast.
-URL: https://hesim-dev.github.io/hesim,
+URL: https://hesim-dev.github.io/hesim/,
         https://github.com/hesim-dev/hesim
 BugReports: https://github.com/hesim-dev/hesim/issues
 License: GPL-3
@@ -37,11 +37,11 @@ VignetteBuilder: knitr
 RoxygenNote: 7.1.0
 SystemRequirements: C++11
 NeedsCompilation: yes
-Packaged: 2020-09-29 05:56:49 UTC; devin.incerti
+Packaged: 2020-10-02 06:17:36 UTC; devin.incerti
 Author: Devin Incerti [aut, cre],
   Jeroen P. Jansen [aut],
   R Core Team [ctb] (hesim uses some slightly modified C functions from
     base R)
 Maintainer: Devin Incerti <devin.incerti@gmail.com>
 Repository: CRAN
-Date/Publication: 2020-09-29 09:30:04 UTC
+Date/Publication: 2020-10-05 08:40:07 UTC

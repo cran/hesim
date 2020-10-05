@@ -107,7 +107,7 @@ omrRTHR_shape1 <- 4
 omrRTHR_shape2 <- 96
 
 ## -----------------------------------------------------------------------------
-n_samples <- 500 
+n_samples <- 500
 
 ## -----------------------------------------------------------------------------
 matrixv <- function(v, n = NULL){
@@ -251,7 +251,7 @@ head(econmod$disprog_)
 ## -----------------------------------------------------------------------------
 econmod$sim_stateprobs(t = 0:60)
 
-## ---- echo = FALSE------------------------------------------------------------
+## ---- echo = FALSE, fig.width = 7, fig.height = 4-----------------------------
 mean_stateprobs <- econmod$stateprobs_[, .(prob_mean = mean(prob)),
                                        by = c("strategy_id", "state_id", "t")]
 mean_stateprobs[, state_name := factor(state_id,
