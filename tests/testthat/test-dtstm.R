@@ -91,7 +91,7 @@ tprob_array[, , 2, 2, 2, ] <- rdirichlet_mat(n_samples, make_alpha(tprob, .5))
 
 tprob_array <- aperm(tprob_array, perm = c(6:3, 1, 2))
 
-# tparams_transprobs.array() ---------------------------------------------------
+# tparams_transprobs.array() (6D) ----------------------------------------------
 params_tprob <- tparams_transprobs(tprob_array, times = time_start)
 params_tprob_t1 <- tparams_transprobs(tprob_array[,,,1,,, drop = FALSE])
 
@@ -149,19 +149,51 @@ tpmat <- tpmatrix(
 )
 input_dat <- expand(hesim_dat)
 
-test_that("tparams_transprobs returns error if 'tpmatrix_id' is wrong class", {
+test_that("tparams_transprobs returns error if 'tpmatrix_id' has wrong class", {
   expect_error(
     tparams_transprobs(tpmat, 2),
-    "'tpmatrix_id' must be of class 'tpmatrix_id'."
+    "'tpmatrix_id' must be of class 'data.frame'." 
+  )
+})
+
+test_that("tparams_transprobs returns error if 'tpmatrix_id' has wrong number of rows", {
+  expect_error(
+    tparams_transprobs(tpmat, data.frame(2)),
+    "'object' and 'tpmatrix_id' must have the same number of rows." 
   )
 })
 
 test_that("tparams_transprobs returns the correct class", {
-  tpmat_id <- tpmatrix_id(input_dat, n_samples = 2)
+  tpmat_id <- tpmatrix_id(input_dat, n_samples = 1)
+  tp <- tpmatrix(
+    C, c(.6, .7, .5, .4),
+    0, 1
+  )
   expect_true(
-    inherits(tparams_transprobs(tpmat, tpmat_id),
+    inherits(tparams_transprobs(tp, tpmat_id),
              "tparams_transprobs")
   )
+})
+
+# tparams_transprobs.array() (3D) ----------------------------------------------
+p <- c(.7, .6, .55, .58)
+tpmat <- tpmatrix(
+  C, p,
+  0, 1
+)
+tparray <- as_array3(tpmat)
+tpmat_id <- tpmatrix_id(input_dat, n_samples = 1)
+
+test_that("tparams_transprobs.array works as expected with 3D array", {
+  tprob1 <- tparams_transprobs(tparray, tpmat_id)
+  tprob2 <- tparams_transprobs(tpmat, tpmat_id)
+  expect_equal(tprob1, tprob2)
+})
+
+test_that("tparams_transprobs.array returns an error with the incorrect number of slices", {
+  expect_error(tparams_transprobs(tparray[, , -1], tpmat_id),
+               paste0("The third dimension of the array 'object' must equal ",
+                      "the number or rows in 'tpmatrix_id'"))
 })
 
 # Initialize CohortDtstmTrans object -------------------------------------------
