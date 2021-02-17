@@ -7,7 +7,7 @@
 An \link[R6:R6Class]{R6::R6Class} object.
 }
 \description{
-Summarize \code{n-1} survival curves for an \code{N} state partitioned survival model.
+Summarize N-1 survival curves for an N-state partitioned survival model.
 }
 \examples{
 library("flexsurv")
@@ -33,7 +33,7 @@ fits <- flexsurvreg_list(fit1, fit2, fit3)
 # Form PsmCurves
 surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
 psm_curves <- create_PsmCurves(fits, input_data = surv_input_data, n = 3,
-                               bootstrap = TRUE, est_data = surv_est_data)
+                               uncertainty = "bootstrap", est_data = surv_est_data)
 
 # Summarize survival curves
 head(psm_curves$quantile(p = c(.25, .5, .75)))
@@ -42,14 +42,14 @@ head(psm_curves$rmst(t = c(2, 5)))
 
 }
 \seealso{
-\link{Psm}, \code{\link[=create_PsmCurves]{create_PsmCurves()}}
+\code{\link{Psm}}, \code{\link[=create_PsmCurves]{create_PsmCurves()}}
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{params}}{An object of class \link{params_surv_list}.}
+\item{\code{params}}{An object of class \code{\link{params_surv_list}}.}
 
-\item{\code{input_data}}{An object of class \link{input_mats}. Each row in \code{X} must
+\item{\code{input_data}}{An object of class \code{\link{input_mats}}. Each row in \code{X} must
 be a unique treatment strategy and patient.}
 }
 \if{html}{\out{</div>}}
@@ -135,7 +135,7 @@ A \code{data.table} with columns \code{sample}, \code{strategy_id},
 \if{html}{\out{<a id="method-survival"></a>}}
 \if{latex}{\out{\hypertarget{method-survival}{}}}
 \subsection{Method \code{survival()}}{
-Predict the cumulative hazard function for each survival curve as a function of time.
+Predict survival probabilities for each survival curve as a function of time.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{PsmCurves$survival(t)}\if{html}{\out{</div>}}
 }
@@ -148,8 +148,7 @@ Predict the cumulative hazard function for each survival curve as a function of 
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{data.table} with columns \code{sample}, \code{strategy_id},
-\code{patient_id}, \code{grp_id}, \code{curve}, \code{t}, and \code{survival}.
+An object of class \code{\link{survival}}.
 }
 }
 \if{html}{\out{<hr>}}

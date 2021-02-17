@@ -1,3 +1,7 @@
+## ---- include = FALSE---------------------------------------------------------
+library("knitr")
+opts_chunk$set(fig.width = 8, fig.height = 4.5)
+
 ## ----ce_output, warning = FALSE, message = FALSE------------------------------
 set.seed(131)
 n_samples <- 1000
@@ -32,130 +36,78 @@ ce <- data.table(sample = rep(seq(n_samples), length(e)),
                  cost = do.call("c", c), qalys = do.call("c", e))
 head(ce)
 
-## ----enmb_example-------------------------------------------------------------
-ce <- ce[, nmb := 150000 * qalys - cost]
-enmb <- ce[, .(enmb = mean(nmb)), by = c("strategy", "grp")]
-enmb <- dcast(enmb, strategy ~ grp, value.var = "enmb")
-print(enmb)
-
 ## ----cea, warning = FALSE, message = FALSE------------------------------------
 library("hesim")
 ktop <- 200000
-cea <-  cea(ce, k = seq(0, ktop, 500), sample = "sample", strategy = "strategy",
-            grp = "grp", e = "qalys", c = "cost")
+cea_out <-  cea(ce, k = seq(0, ktop, 500), sample = "sample", strategy = "strategy",
+                grp = "grp", e = "qalys", c = "cost")
 
 ## ----cea_pw-------------------------------------------------------------------
-cea_pw <-  cea_pw(ce,  k = seq(0, ktop, 500), comparator = "Strategy 1",
-                  sample = "sample", strategy = "strategy", grp = "grp",
-                  e = "qalys", c = "cost")
-
-## ----cea_summary--------------------------------------------------------------
-print(cea$summary)
-
-## ----cea_custom---------------------------------------------------------------
-ce[, .(median_cost = median(cost), median_qalys = median(qalys)),
-   by = c("strategy", "grp")]
-
-## ----icer---------------------------------------------------------------------
-print(cea_pw$summary)
+cea_pw_out <-  cea_pw(ce,  k = seq(0, ktop, 500), comparator = "Strategy 1",
+                      sample = "sample", strategy = "strategy", grp = "grp",
+                       e = "qalys", c = "cost")
 
 ## -----------------------------------------------------------------------------
-head(cea_pw$delta)
+library("magrittr") # Use pipes
+icer(cea_pw_out, k = 50000) %>%
+  format()
 
-## ----ceplane_plot, fig.width = 6, fig.height = 4------------------------------
+## -----------------------------------------------------------------------------
+head(cea_pw_out$delta)
+
+## ----ceplane_plot-------------------------------------------------------------
 library("ggplot2")
-library("scales")
-theme_set(theme_minimal())
-
-ylim <- max(cea_pw$delta[, ic]) * 1.1
-xlim <- ceiling(max(cea_pw$delta[, ie]) * 1.1)
-ggplot(cea_pw$delta, aes(x = ie, y = ic, col = factor(strategy))) + 
-  geom_jitter(size = .5) + 
-  facet_wrap(~grp) + 
-  xlab("Incremental QALYs") + 
-  ylab("Incremental cost") +
-  scale_y_continuous(label = scales::dollar, 
-                     limits = c(-ylim, ylim)) +
-  scale_x_continuous(limits = c(-xlim, xlim), 
-                     breaks = seq(-6, 6, 2)) +
-  theme(legend.position = "bottom") + 
-  scale_colour_discrete(name = "Strategy") +
-  geom_abline(slope = 150000, linetype = "dashed") +
-  geom_hline(yintercept = 0) + geom_vline(xintercept = 0)
+theme_set(theme_bw())
+plot_ceplane(cea_pw_out, k = 50000)
 
 ## ----mce_example_setup, echo = -1, warning = FALSE, message = FALSE-----------
 library("knitr")
-
+ce <- ce[, nmb := 50000 * qalys - cost]
 random_rows <- sample(1:n_samples, 10)
-nmb_dt <- dcast(ce[sample %in% random_rows & grp == "Group 2"], 
+nmb <- dcast(ce[sample %in% random_rows & grp == "Group 2"], 
                 sample ~ strategy, value.var = "nmb")
-setnames(nmb_dt, colnames(nmb_dt), c("sample", "nmb1", "nmb2", "nmb3"))
-nmb_dt <- nmb_dt[, maxj := apply(nmb_dt[, .(nmb1, nmb2, nmb3)], 1, which.max)]
-nmb_dt <- nmb_dt[, maxj := factor(maxj, levels = c(1, 2, 3))]
+setnames(nmb, colnames(nmb), c("sample", "nmb1", "nmb2", "nmb3"))
+nmb <- nmb[, maxj := apply(nmb[, .(nmb1, nmb2, nmb3)], 1, which.max)]
+nmb <- nmb[, maxj := factor(maxj, levels = c(1, 2, 3))]
 
 ## ----mce_example, echo = -1---------------------------------------------------
-kable(nmb_dt, digits = 0, format = "html")
-mce <- prop.table(table(nmb_dt$maxj))
+kable(nmb, digits = 0, format = "html")
+mce <- prop.table(table(nmb$maxj))
 print(mce)
 
-## ----mce_plot, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
-ggplot(cea$mce, aes(x = k, y = prob, col = factor(strategy))) +
-  geom_line() + 
-  facet_wrap(~grp) + 
-  xlab("Willingness to pay") +
-  ylab("Probability most cost-effective") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), 
-                     label = scales::dollar) +
-  theme(legend.position = "bottom") + 
-  scale_colour_discrete(name = "Strategy")
+## ----mce_plot, warning = FALSE, message = FALSE-------------------------------
+plot_ceac(cea_out)
 
-## ----ceac_plot, fig.width = 6, fig.height = 4---------------------------------
-ggplot(cea_pw$ceac, aes(x = k, y = prob, col = factor(strategy))) +
-  geom_line() + 
-  facet_wrap(~grp) + 
-  xlab("Willingness to pay") +
-  ylab("Probability most cost-effective") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), 
-                     label = scales::dollar) +
-  theme(legend.position = "bottom") + 
-  scale_colour_discrete(name = "Strategy")
+## ----ceac_plot----------------------------------------------------------------
+plot_ceac(cea_pw_out)
 
-## ----ceaf_plot, fig.width = 6, fig.height = 4---------------------------------
-
-ggplot(cea$mce[best == 1], aes(x = k, y = prob, col = strategy)) +
-  geom_line() + 
-  facet_wrap(~grp) + 
-  xlab("Willingness to pay") +
-  ylab("Probability most cost-effective") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), 
-                     label = scales::dollar) +
-  theme(legend.position = "bottom") +
-  scale_colour_discrete(name = "Strategy")
+## ----ceaf_plot----------------------------------------------------------------
+plot_ceaf(cea_out)
 
 ## ----evpi_example_a-----------------------------------------------------------
-strategymax_g2 <- which.max(enmb[[3]])
-nmb_dt <- nmb_dt[, nmbpi := apply(nmb_dt[, .(nmb1, nmb2, nmb3)], 1, max)]
-nmb_dt <- nmb_dt[, nmbci := nmb_dt[[strategymax_g2 + 1]]]
-kable(nmb_dt, digits = 0, format = "html")
+# Expected net monetary benefit
+enmb <- ce[, .(enmb = mean(nmb)), by = c("strategy", "grp")]
+enmb <- dcast(enmb, strategy ~ grp, value.var = "enmb")
+strategymax_g2 <- which.max(enmb[[3]]) # Optimal strategy group 2
+
+# Net monetary benefit (with perfect and current information)
+nmb <- nmb[, nmbpi := apply(nmb[, .(nmb1, nmb2, nmb3)], 1, max)]
+nmb <- nmb[, nmbci := nmb[[strategymax_g2 + 1]]]
+kable(nmb, digits = 0, format = "html")
 
 ## ----evpi_example_b-----------------------------------------------------------
-enmbpi <- mean(nmb_dt$nmbpi)
-enmbci <- mean(nmb_dt$nmbci)
+enmbpi <- mean(nmb$nmbpi)
+enmbci <- mean(nmb$nmbci)
 print(enmbpi)
 print(enmbci)
 print(enmbpi - enmbci)
 
-## ----evpi_plot, fig.width = 6, fig.height = 4---------------------------------
-ggplot(cea$evpi, aes(x = k, y = evpi)) +
-  geom_line() + facet_wrap(~grp) + xlab("Willingness to pay") +
-  ylab("Expected value of perfect information") +
-  scale_x_continuous(breaks = seq(0, ktop, 100000), label = scales::dollar) +
-  scale_y_continuous(label = scales::dollar) +
-  theme(legend.position = "bottom") 
+## ----evpi_plot----------------------------------------------------------------
+plot_evpi(cea_out)
 
-## ----totevpi, fig.width = 6, fig.height = 4-----------------------------------
+## ----totevpi, fig.width = 6---------------------------------------------------
 w_dt <- data.table(grp = paste0("Group ", seq(1, 2)), w = c(0.25, .75))
-evpi <- cea$evpi
+evpi <- cea_out$evpi
 evpi <- merge(evpi, w_dt, by = "grp")
 totevpi <- evpi[,lapply(.SD, weighted.mean, w = w),
                 by = "k", .SDcols = c("evpi")]

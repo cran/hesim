@@ -30,22 +30,73 @@ check_scalar <- function(x, name){
   }
 }
 
-# Additional utility methods ---------------------------------------------------
-#' Absorbing states
-#' 
-#' Returns a vector of absorbing states from a transition matrix.
-#' @param trans_mat A transition matrix in the format from the \link[mstate]{mstate} package. 
-#' See \link{IndivCtstmTrans}.
-#' @keywords internal
-absorbing <- function(trans_mat){
-  which(apply(trans_mat, 1, function(x) all(is.na(x))))
-}
-
 check_dr <- function(dr){
   if(any(table(dr) > 1)){
     stop("You cannot specify the same discount rate twice.",
          call. = FALSE)
   }  
+}
+
+check.array <- function(coefs){
+  # 'coefs' must be a 3D array (and this has been checked in get_n_samples())
+  
+  # There are currently no other checks
+}
+
+check_StateVals <- function(statevalmods, object, 
+                            object_name = c("stateprobs", "disprog")) {
+  
+  object_name <- match.arg(object_name)
+  
+  if (!is.null(attr(object, "size"))) {
+    expected_size <- attr(object, "size")
+  } else {
+    stop("'size' attribute missing from ", object_name, ".")
+  }
+  
+  for (i in 1:length(statevalmods)){ # Loop over state value models to check size 
+    
+    check_size <- function(actual, expected, z = NULL, msg = NULL) {
+      if (actual != expected) {
+        if (is.null(msg)) {
+          msg <- paste0("The number of ", z, " in each 'StateVals' model must equal ",
+                        "the number of ", z,  " in the '", object_name, "' object, ",
+                        "which is ", expected, ".")
+        }
+        stop(msg, call. = FALSE)
+      }
+    }
+    
+    check_size(get_n_samples(statevalmods[[i]]$params),
+               expected_size[["n_samples"]],
+               z = "samples")
+    check_size(get_id_object(statevalmods[[i]])$n_strategies, 
+               expected_size[["n_strategies"]],
+               z = "strategies")
+    check_size(get_id_object(statevalmods[[i]])$n_patients, 
+               expected_size[["n_patients"]],
+               z = "patients")
+    check_size(
+      get_id_object(statevalmods[[i]])$n_states + 1, 
+      expected_size[["n_states"]],
+      msg = paste0("The number of states in each 'StateVals' model ", 
+                   "must be one less (since state values are not applied to the ",
+                   "death state) than the number of states in the ",
+                   "'", object_name, "' object",
+                   ", which is ", expected_size[["n_states"]], ".")
+    )
+  } # End loop over state value models
+}
+
+# Additional utility methods ---------------------------------------------------
+#' Absorbing states
+#' 
+#' Returns a vector of absorbing states from a transition matrix.
+#' @param trans_mat A transition matrix in the format from the [`mstate`][mstate::mstate] package. 
+#' See [`IndivCtstmTrans`].
+#' @keywords internal
+absorbing <- function(trans_mat){
+  which(apply(trans_mat, 1, function(x) all(is.na(x))))
 }
 
 #' Form a list from \code{...}
@@ -146,23 +197,6 @@ flatten_lists <- function(x) {
   else return(unlist(c(lapply(x, flatten_lists)), recursive = FALSE))
 }
 
-# Get the object containing ID attributes
-get_id_object <- function(x){
-  if (is.null(x$input_data)){
-    return(x$params)
-  } else{
-    return(x$input_data)
-  }
-}
-
-get_id_name <- function(x){
-  if (is.null(x$input_data)){
-    return("params")
-  } else{
-    return("input_data")
-  }
-}
-
 # Sample from a posterior distribution
 sample_from_posterior <- function(n, n_samples){
   if (n < n_samples){
@@ -198,27 +232,60 @@ check_patient_wt <- function(object, result){
   }
 }
 
-get_n_samples <- function (coefs) {
-  UseMethod("get_n_samples")
+format_costs <- function(x, digits){
+  formatC(x, format = "f", digits = digits, big.mark = ",")
+}
+
+format_qalys <- function(x, digits){
+  formatC(x, format = "f", digits = digits)
+}
+
+ci_alpha <- function(prob) {
+  if (prob > 1 | prob < 0){
+    stop("'prob' must be in the interval (0,1)",
+         call. = FALSE)
+  }
+  lower <- (1 - prob)/2
+  upper <- 1 - lower
+  return(list(lower = lower, upper = upper))
+}
+
+format_ci <- function(est, lower, upper, costs = TRUE, digits){
+  if (costs){
+    est <- format_costs(est, digits = digits)
+    lower <- format_costs(lower, digits = digits)
+    upper <- format_costs(upper, digits = digits)
+  } else{
+    est <- format_qalys(est, digits = digits)
+    lower <- format_qalys(lower, digits = digits)
+    upper <- format_qalys(upper, digits = digits)
+  }
+  paste0(est, " (",lower, ", ", upper, ")")
+}
+
+format_summary_default <- function(x, pivot_from, id_cols, drop_grp) {
+  
+  if (!is.null(pivot_from)) {
+    rhs <- pivot_from
+    lhs <- setdiff(id_cols, pivot_from)
+    f <- paste(paste(lhs, collapse=" + "), paste(rhs, collapse = " + "),  sep=" ~ ")
+    x <- dcast(x, f, value.var = "value", sep = ", ")
+  }
+  
+  # Drop group if desired
+  if (drop_grp && ("grp" %in% colnames(x))) {
+    n_grps <- length(unique(x$grp))
+    if (n_grps == 1) x[, ("grp") := NULL]
+  }
+  
+  # Return
+  return(x)
 }
 
 # List of matrices -------------------------------------------------------------
 matlist <- function(x){
   class(x) <- "matlist"
   return(x)
-}
-
-get_n_samples.matlist <- function(coefs){
-  stopifnot(is.list(coefs))
-  if (!is.matrix(coefs[[1]])){
-    stop("'coefs' must be a list of matrices.", call. = FALSE)
-  }
-  return(nrow(coefs[[1]]))
-}
-
-get_n_samples.array <- function(coefs){
-  stopifnot(is_3d_array(coefs))
-  return(dim(coefs)[1])
 }
 
 check.matlist <- function(coefs){
@@ -239,9 +306,30 @@ check.matlist <- function(coefs){
   } 
 }
 
-check.array <- function(coefs){
-  # 'coefs' must be a 3D array (and this has been checked in get_n_samples())
-  
-  # There are currently no other checks
+# Get number of samples --------------------------------------------------------
+get_n_samples <- function (x) {
+  UseMethod("get_n_samples")
 }
 
+get_n_samples.default <- function(x) {
+  if ("n_samples" %in% names(x)) {
+    return(x[["n_samples"]])
+  } else if (is.list(x) && ("n_samples" %in% names(x[[1]]))) {
+    return (x[[1]][["n_samples"]])
+  } else {
+    stop("Could not find 'n_samples'.")
+  }
+} 
+
+get_n_samples.matlist <- function(x){
+  stopifnot(is.list(x))
+  if (!is.matrix(x[[1]])){
+    stop("'coefs' must be a list of matrices.", call. = FALSE)
+  }
+  return(nrow(x[[1]]))
+}
+
+get_n_samples.array <- function(x){
+  stopifnot(is_3d_array(x))
+  return(dim(x)[1])
+}

@@ -1,4 +1,4 @@
-#' `hesim`: Health-Economic Simulation Modeling and Decision Analysis
+#' `hesim`: Health Economic Simulation Modeling and Decision Analysis
 #' 
 #' @description 
 #' To learn more about `hesim` visit the [website](https://hesim-dev.github.io/hesim/).
@@ -8,4 +8,5 @@
 #' @useDynLib hesim
 #' @import data.table
 #' @importFrom Rcpp evalCpp
+#' @importFrom ggplot2 .data
 NULL

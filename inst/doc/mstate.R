@@ -1,3 +1,6 @@
+## ---- include = FALSE---------------------------------------------------------
+ggplot2::theme_set(ggplot2::theme_bw())
+
 ## ---- out.width = "500px", echo = FALSE---------------------------------------
 knitr::include_graphics("reversible-illness-death.png")
 
@@ -5,22 +8,31 @@ knitr::include_graphics("reversible-illness-death.png")
 tmat <- rbind(c(NA, 1, 2),
               c(3, NA, 4),
               c(NA, NA, NA))
-colnames(tmat) <- rownames(tmat) <- c("Healthy", "Sick", "Dead")
+colnames(tmat) <- rownames(tmat) <- c("Healthy", "Sick", "Death")
 print(tmat)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 library("hesim")
 library("data.table")
-strategies <- data.table(strategy_id = c(1, 2))
+strategies <- data.table(strategy_id = c(1, 2),
+                         strategy_name = c("SOC", "New"))
 n_patients <- 1000
 patients <- data.table(patient_id = 1:n_patients,
                        age = rnorm(n_patients, mean = 45, sd = 7),
                        female = rbinom(n_patients, size = 1, prob = .51))
 states <- data.table(state_id = c(1, 2),
-                     state_name = c("Healthy", "Sick")) # Non-death health states
+                     state_name = rownames(tmat)[1:2]) # Non-death health states
 hesim_dat <- hesim_data(strategies = strategies,
                         patients = patients, 
                         states = states)
+
+## -----------------------------------------------------------------------------
+labs <- get_labels(hesim_dat)
+labs$transition_id <- c("Healthy-> Sick" = 1, 
+                        "Healthy -> Death" = 2,
+                        "Sick -> Healthy" = 3,
+                        "Sick -> Death" = 4)
+print(labs)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 library("flexsurv")
@@ -48,21 +60,18 @@ wei_fits_cf <- flexsurvreg_list(wei_fits_cf)
 utility_tbl <- stateval_tbl(data.table(state_id = states$state_id,
                                        mean = mstate3_exdata$utility$mean,
                                        se = mstate3_exdata$utility$se),
-                            dist = "beta",
-                            hesim_data = hesim_dat)
+                            dist = "beta")
 head(utility_tbl)
 
 
 ## -----------------------------------------------------------------------------
 drugcost_tbl <- stateval_tbl(data.table(strategy_id = strategies$strategy_id,
                                        est = mstate3_exdata$costs$drugs$costs),
-                            dist = "fixed",
-                            hesim_data = hesim_dat) 
+                            dist = "fixed")
 medcost_tbl <- stateval_tbl(data.table(state_id = states$state_id,
                                        mean = mstate3_exdata$costs$medical$mean,
                                        se = mstate3_exdata$costs$medical$se),
-                            dist = "gamma",
-                            hesim_data = hesim_dat)  
+                            dist = "gamma")
 
 ## -----------------------------------------------------------------------------
 n_samples <- 1000
@@ -89,7 +98,7 @@ predict_haz <- function(fits, clock){
  transmod_cr_pat1 <- create_IndivCtstmTrans(fits, transmod_data_pat1,
                                             trans_mat = tmat, 
                                             clock = clock,
-                                            point_estimate = TRUE)
+                                            uncertainty = "none")
   haz <- transmod_cr_pat1$hazard(t = seq(0, 20, 1))
   title_clock <- paste(toupper(substr(clock, 1, 1)), 
                        substr(clock, 2, nchar(clock)), sep="")
@@ -102,27 +111,23 @@ predict_haz <- function(fits, clock){
 library("ggplot2")
 haz <- rbind(predict_haz(wei_fits_cr, "reset"),
              predict_haz(wei_fits_cf, "forward"))
-haz[, trans_name := factor(trans,
-                           levels = 1:4,
-                           labels = c("Healthy-> Sick", 
-                                      "Healthy -> Dead",
-                                      "Sick -> Healthy",
-                                      "Sick -> Dead"))]
+set_labels(haz, labels = labs, 
+           new_names = c("strategy_name", "trans_name"))
 ggplot(haz[t > 0], 
-       aes(x = t, y = hazard, col = clock, linetype = factor(strategy_id))) + 
+       aes(x = t, y = hazard, col = clock, linetype = strategy_name)) + 
   geom_line() + 
   facet_wrap(~trans_name) +
   xlab("Years") + ylab("Hazard") +
   scale_linetype_discrete(name = "Strategy") +
-  scale_color_discrete(name = "Clock") + theme_bw()
+  scale_color_discrete(name = "Clock") 
 
 ## -----------------------------------------------------------------------------
 # Utility
-utilitymod <- create_StateVals(utility_tbl, n = n_samples)
+utilitymod <- create_StateVals(utility_tbl, n = n_samples, hesim_data = hesim_dat)
 
 # Costs
-drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples)
-medcostmod <- create_StateVals(medcost_tbl, n = n_samples)
+drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples, hesim_data = hesim_dat)
+medcostmod <- create_StateVals(medcost_tbl, n = n_samples, hesim_data = hesim_dat)
 costmods <- list(Drug = drugcostmod,
                  Medical = medcostmod)
 
@@ -146,28 +151,20 @@ econmod_cf$sim_disease()
 econmod_cr$sim_stateprobs(t = seq(0, 20 , 1/12)) 
 
 ## ----stprobs_by_strategy_plot, fig.width = 7, fig.height = 4------------------
-# Short funtion add create state name variable to data.tabale
-add_state_name <- function(x){
-  x[, state_name := factor(state_id,
-                           levels = 1:nrow(tmat),
-                           labels = colnames(tmat))] 
-}
-
 # Short function to create state probability "dataset" for plotting
 summarize_stprobs <- function(stateprobs){
   x <- stateprobs[, .(prob_mean = mean(prob)),
                   by = c("strategy_id", "state_id", "t")]
-  add_state_name(x)
+  set_labels(x, labels = labs, new_names = c("strategy_name", "state_name"))
 }
 
 # Plot of state probabilities
 stprobs_cr <- summarize_stprobs(econmod_cr$stateprobs_)
-ggplot(stprobs_cr, aes(x = t, y = prob_mean, col = factor(strategy_id))) +
+ggplot(stprobs_cr, aes(x = t, y = prob_mean, col = strategy_name)) +
   geom_line() + facet_wrap(~state_name) + 
   xlab("Years") + ylab("Probability in health state") +
   scale_color_discrete(name = "Strategy") +
-  theme(legend.position = "bottom") +
-  theme_bw()
+  theme(legend.position = "bottom") 
 
 ## ----stprobs_by_timescale_plot, fig.width = 7, fig.height = 4-----------------
 econmod_cf$sim_stateprobs(t = seq(0, 20 , 1/12)) 
@@ -181,8 +178,7 @@ ggplot(stprobs[strategy_id == 1],
   geom_line() + facet_wrap(~state_name) + 
   xlab("Years") + ylab("Probability in health state") +
   scale_color_discrete(name = "Clock") +
-  theme(legend.position = "bottom") +
-  theme_bw()
+  theme(legend.position = "bottom") 
 
 ## -----------------------------------------------------------------------------
 econmod_cr$sim_qalys(dr = c(0,.03))
@@ -191,32 +187,21 @@ head(econmod_cr$qalys_)
 ## ----qalys_plot, fig.width = 6, fig.height = 4--------------------------------
 qalys_summary <- econmod_cr$qalys_[, .(mean = mean(qalys)),
                                     by = c("strategy_id", "state_id", "dr")]
-add_state_name(qalys_summary)
+set_labels(qalys_summary, labels = labs,
+           new_names = c("strategy_name", "state_name"))
 ggplot(qalys_summary[dr == .03],
-       aes(x = factor(strategy_id), y = mean, fill = state_name)) + 
+       aes(x = strategy_name, y = mean, fill = state_name)) + 
   geom_bar(stat = "identity") +
   scale_fill_discrete(name = "") +
-  xlab("Strategy") + ylab("Mean QALYs") +
-  theme_bw()
+  xlab("Strategy") + ylab("Mean QALYs") 
 
 ## -----------------------------------------------------------------------------
 econmod_cr$sim_costs(dr = 0.03)
 head(econmod_cr$costs_)
 
-## ----costs_plot, fig.width = 6, fig.height = 4--------------------------------
-library("scales")
-costs_summary <- econmod_cr$costs_[dr == .03 , .(mean = mean(costs)),
-                                   by = c("strategy_id", "category")]
-ggplot(costs_summary,
-       aes(x = factor(strategy_id), y = mean, fill = category)) + 
-  geom_bar(stat = "identity") +
-  scale_fill_discrete(name = "Category") +
-  scale_y_continuous(label = scales::dollar_format()) +
-  xlab("Strategy") + ylab("Mean costs") +
-  theme_bw()
-
 ## -----------------------------------------------------------------------------
 ce_sim <- econmod_cr$summarize()
+format(summary(ce_sim, labels = labs))
 cea_out <- cea(ce_sim, dr_qalys = .03, dr_costs = .03)
 cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = .03, dr_costs = .03)
 

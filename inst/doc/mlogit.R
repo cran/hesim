@@ -5,7 +5,7 @@ knitr::include_graphics("illness-death.png")
 tmat <- rbind(c(0, 1, 2),
               c(NA, 0, 1),
               c(NA, NA, NA))
-colnames(tmat) <- rownames(tmat) <- c("Healthy", "Sick", "Dead")
+colnames(tmat) <- rownames(tmat) <- c("Healthy", "Sick", "Death")
 print(tmat)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
@@ -27,8 +27,12 @@ hesim_dat <- hesim_data(
   strategies = data.table(strategy_id = 1:2,
                           strategy_name = c("Reference", "Intervention")),
   states = data.table(state_id = c(1, 2),
-                     state_name = c("Healthy", "Sick")) # Non-death health states
+                     state_name = rownames(tmat)[1:2]) # Non-death health states
 )
+
+## -----------------------------------------------------------------------------
+labs <- get_labels(hesim_dat)
+print(labs)
 
 ## -----------------------------------------------------------------------------
 library("nnet")
@@ -51,17 +55,14 @@ transfits <- multinom_list(healthy = fit_healthy, sick = fit_sick)
 
 ## -----------------------------------------------------------------------------
 utility_tbl <- stateval_tbl(multinom3_exdata$utility,
-                            dist = "beta",
-                            hesim_data = hesim_dat)
+                            dist = "beta")
 head(utility_tbl)
 
 ## -----------------------------------------------------------------------------
 drugcost_tbl <- stateval_tbl(multinom3_exdata$costs$drugs,
-                            dist = "fixed",
-                            hesim_data = hesim_dat) 
+                            dist = "fixed")
 medcost_tbl <- stateval_tbl(multinom3_exdata$costs$medical,
-                            dist = "gamma",
-                            hesim_data = hesim_dat)  
+                            dist = "gamma")
 
 ## -----------------------------------------------------------------------------
 n_samples <- 100
@@ -74,15 +75,15 @@ transmod <- create_CohortDtstmTrans(transfits,
                                     input_data = transmod_data,
                                     trans_mat = tmat,
                                     n = n_samples,
-                                    point_estimate = FALSE)
+                                    uncertainty = "normal")
 
 ## -----------------------------------------------------------------------------
 # Utility
-utilitymod <- create_StateVals(utility_tbl, n = n_samples)
+utilitymod <- create_StateVals(utility_tbl, n = n_samples, hesim_data = hesim_dat)
 
 # Costs
-drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples)
-medcostmod <- create_StateVals(medcost_tbl, n = n_samples)
+drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples, hesim_data = hesim_dat)
+medcostmod <- create_StateVals(medcost_tbl, n = n_samples, hesim_data = hesim_dat)
 costmods <- list(Drug = drugcostmod,
                  Medical = medcostmod)
 
@@ -93,23 +94,8 @@ econmod <- CohortDtstm$new(trans_model = transmod,
 
 ## ----stateprobs, fig.width = 7, fig.height = 4--------------------------------
 econmod$sim_stateprobs(n_cycles = 20)
-
-# Plot
-library("ggplot2")
-theme_set(theme_bw())
-stateprob_summary <- econmod$stateprobs_[, .(prob_mean = mean(prob),
-                                              prob_lower = quantile(prob, .025),
-                                              prob_upper = quantile(prob, .975)),
-                                          by = c("strategy_id", "state_id", "t")]
-stateprob_summary[, strategy_name := factor(strategy_id,
-                                          labels = hesim_dat$strategies$strategy_name)]
-ggplot(stateprob_summary, aes(x = t, y = prob_mean)) +
-  geom_line(aes(col = strategy_name)) +
-  geom_ribbon(aes(x = t, ymin = prob_lower, ymax = prob_upper,
-                  fill = strategy_name), alpha = .3) +
-  facet_wrap(~factor(state_id, labels = c(hesim_dat$states$state_name, "Death"))) +
-  xlab("Year") + ylab("Probability") +
-  scale_fill_discrete("Strategy") + scale_color_discrete("Strategy")
+autoplot(econmod$stateprobs_, labels = labs,
+         ci = TRUE, ci_style = "ribbon")
 
 ## -----------------------------------------------------------------------------
 econmod$sim_qalys(dr = .03)
@@ -128,9 +114,11 @@ icers[, gender := factor(female,
                          labels = c("Male", "Female"))]
 
 # Plot of ICER by demographics
+library("ggplot2")
 ggplot(icers, aes(x = age, y = as.numeric(gsub(",", "", icer)), col = gender)) +
   geom_point() +
   xlab("Age") + ylab("Incremental cost-effectiveness ratio") +
   scale_y_continuous(label = scales::dollar_format()) +
-  scale_colour_discrete(name = "")
+  scale_colour_discrete(name = "") + 
+  theme_bw()
 

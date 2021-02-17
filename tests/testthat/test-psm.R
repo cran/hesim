@@ -50,20 +50,23 @@ fits_weinma <- flexsurvreg_list(fits_weinma)
 fits_spline <- flexsurvreg_list(fits_spline)
 fits_ggamma <- flexsurvreg_list(fits_ggamma)
 
-test_that("create_PsmCurves", {
-  # From fitted model
+test_that("create_PsmCurves() produces expected output", {
   psm_curves <- create_PsmCurves(fits_wei, input_data = surv_input_data, n = N,
-                                 bootstrap = TRUE, est_data = surv_est_data)
+                                 uncertainty = "bootstrap", est_data = surv_est_data)
   expect_true(inherits(psm_curves, "PsmCurves"))
   expect_true(inherits(psm_curves$params, "params_surv_list"))
   expect_equal(as.numeric(psm_curves$input_data$X[[1]]$scale[, "age"]), 
               surv_input_data$age)
-  
-  ## errors
-  expect_error(create_PsmCurves(3, input_data = surv_input_data, n = N,
-                                bootstrap = FALSE))
-  expect_error(create_PsmCurves(fits_wei, input_data = surv_input_data, n = N,
-                                 bootstrap = TRUE))
+  expect_equal(colnames(psm_curves$params$curves1$coefs$shape)[1],
+               "(Intercept)")
+})
+
+test_that("create_PsmCurves() returns errors when expected", {
+  expect_error(
+    create_PsmCurves(fits_wei, input_data = surv_input_data, n = N,
+                    uncertainty = "bootstrap"),
+    "If uncertainty == 'bootstrap', then est_data cannot be NULL"
+  )
 })
 
 test_that("PsmCurves are correct", {
@@ -72,13 +75,13 @@ test_that("PsmCurves are correct", {
   # Sampling
   ## Weibull
   psm_curves <- create_PsmCurves(fits_wei, input_data = surv_input_data, n = N,
-                                 bootstrap = TRUE,
+                                 uncertainty = "bootstrap",
                                  est_data = surv_est_data)
   expect_true(inherits(psm_curves$survival(t = times), "data.table"))
   
   ## Splines
   psm_curves <- create_PsmCurves(fits_spline, input_data = surv_input_data, n = N,
-                                bootstrap = FALSE)
+                                uncertainty = "normal")
   expect_equal(max(psm_curves$survival(t = times)$sample), N)
   
   # Comparison of summary of survival curves
@@ -87,8 +90,7 @@ test_that("PsmCurves are correct", {
                                                             "quantile")){
     fun_name <- match.arg(fun_name)
     psm_curves <- create_PsmCurves(fits, input_data = data,
-                                   point_estimate = TRUE,
-                                   bootstrap = FALSE)
+                                   uncertainty = "none")
     
     hesim_out <- psm_curves[[fun_name]](t = times)
     fun_name2 <- if (fun_name == "cumhazard"){
@@ -126,7 +128,7 @@ test_that("PsmCurves are correct", {
   
   # Quantiles
   psm_curves <- create_PsmCurves(fits_exp, input_data = surv_input_data, n = N,
-                                 bootstrap = TRUE, est_data = surv_est_data)
+                                 uncertainty = "bootstrap", est_data = surv_est_data)
   X <- psm_curves$input_data$X$curves1$rate[1, , drop = FALSE]
   beta <- psm_curves$params$curves1$coefs$rate[1, , drop = FALSE]
   rate_hat <- X %*% t(beta)
@@ -143,7 +145,7 @@ times <- c(0, 2, 5, 8)
 
 ## Survival models
 psm_curves <- create_PsmCurves(fits_wei, input_data = surv_input_data, n = N,
-                               bootstrap = FALSE)
+                               uncertainty = "normal")
 
 ## Utility model
 psm_X <- create_input_mats(formula_list(mu = formula(~1)), 
@@ -225,10 +227,9 @@ test_that("sim_costs() and sim_qalys() both return a data.table", {
 ## Psm from a parameter object
 test_that("A Psm object can be constructed and simulated from a parameter object", {
   # PsmCurves
-  params_wei <- create_params(fits_wei)
+  params_wei <- create_params(fits_wei, n = 5)
   tmp_input_data <- surv_input_data
-  tmp_input_data$shape <- 1
-  tmp_input_data$scale <- 1
+  tmp_input_data[["(Intercept)"]] <- 1
   psm_curves <- create_PsmCurves(params_wei, input_data = tmp_input_data)
   expect_true(inherits(psm_curves$hazard(t = c(1, 2, 3)),
                       "data.table"))

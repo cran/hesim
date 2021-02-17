@@ -11,7 +11,7 @@ Simulate outcomes from an individual-level continuous time state transition
 model (CTSTM) from a fitted multi-state model. The class supports "clock-reset"
 (i.e., semi-Markov), "clock-forward" (i.e., Markov), and mixtures of
 clock-reset and clock-forward models as described in
-\link{IndivCtstmTrans}.
+\code{\link{IndivCtstmTrans}}.
 }
 \examples{
 library("flexsurv")
@@ -45,18 +45,15 @@ fits <- flexsurvreg_list(fits)
 utility_tbl <- stateval_tbl(data.frame(state_id = states$state_id,
                                        mean = mstate3_exdata$utility$mean,
                                        se = mstate3_exdata$utility$se),
-                            dist = "beta",
-                            hesim_data = hesim_dat)
+                            dist = "beta")
 ## Costs
 drugcost_tbl <- stateval_tbl(data.frame(strategy_id = strategies$strategy_id,
                                         est = mstate3_exdata$costs$drugs$costs),
-                             dist = "fixed",
-                             hesim_data = hesim_dat) 
+                             dist = "fixed") 
 medcost_tbl <- stateval_tbl(data.frame(state_id = states$state_id,
                                        mean = mstate3_exdata$costs$medical$mean,
                                        se = mstate3_exdata$costs$medical$se),
-                            dist = "gamma",
-                            hesim_data = hesim_dat)  
+                            dist = "gamma")  
 
 # Economic model
 n_samples = 2
@@ -69,11 +66,11 @@ transmod <- create_IndivCtstmTrans(fits, input_data = transmod_data,
                                    n = n_samples)
 
 ### Utility 
-utilitymod <- create_StateVals(utility_tbl, n = n_samples)
+utilitymod <- create_StateVals(utility_tbl, n = n_samples, hesim_data = hesim_dat)
 
 ### Costs
-drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples)
-medcostmod <- create_StateVals(medcost_tbl, n = n_samples)
+drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples, hesim_data = hesim_dat)
+medcostmod <- create_StateVals(medcost_tbl, n = n_samples, hesim_data = hesim_dat)
 costmods <- list(drugs = drugcostmod,
                  medical = medcostmod)
 
@@ -88,32 +85,36 @@ head(ictstm$sim_disease()$disprog_)
 head(ictstm$sim_stateprobs(t = c(0, 5, 10))$stateprobs_[t == 5])
 ictstm$sim_qalys(dr = .03)
 ictstm$sim_costs(dr = .03)
-head(ictstm$summarize())
+
+### Summarize cost-effectiveness
+ce <- ictstm$summarize()
+head(ce)
+format(summary(ce), pivot_from = "strategy")
 
 }
 \seealso{
-\code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}, \link{IndivCtstmTrans}
+\code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}, \code{\link{IndivCtstmTrans}}
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{trans_model}}{The model for health state transitions. Must be an object
-of class \link{IndivCtstmTrans}.}
+of class \code{\link{IndivCtstmTrans}}.}
 
 \item{\code{utility_model}}{The model for health state utility. Must be an object of
-class \link{StateVals}.}
+class \code{\link{StateVals}}.}
 
 \item{\code{cost_models}}{The models used to predict costs by health state.
-Must be a list of objects of class \link{StateVals}, where each element of the
+Must be a list of objects of class \code{\link{StateVals}}, where each element of the
 list represents a different cost category.}
 
-\item{\code{disprog_}}{An object of class \link{disprog}.}
+\item{\code{disprog_}}{An object of class \code{\link{disprog}}.}
 
-\item{\code{stateprobs_}}{An object of class \link{stateprobs} simulated using \verb{$sim_stateprobs()}.}
+\item{\code{stateprobs_}}{An object of class \code{\link{stateprobs}} simulated using \verb{$sim_stateprobs()}.}
 
-\item{\code{qalys_}}{An object of class \link{qalys} simulated using \verb{$sim_qalys()}.}
+\item{\code{qalys_}}{An object of class \code{\link{qalys}} simulated using \verb{$sim_qalys()}.}
 
-\item{\code{costs_}}{An object of class \link{costs} simulated using \verb{$sim_costs()}.}
+\item{\code{costs_}}{An object of class \code{\link{costs}} simulated using \verb{$sim_costs()}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -201,7 +202,7 @@ simulation output stored in \code{disprog}.
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-An instance of \code{self} with simulated output of class \link{stateprobs}
+An instance of \code{self} with simulated output of class \code{\link{stateprobs}}
 stored in \code{stateprobs_}.
 }
 }
@@ -226,7 +227,7 @@ Simulate quality-adjusted life-years (QALYs) as a function of \code{disprog_} an
 \item{\code{dr}}{Discount rate.}
 
 \item{\code{type}}{\code{"predict"} for mean values or \code{"random"} for random samples
-as in \verb{$sim()} in \link{StateVals}.}
+as in \verb{$sim()} in \code{\link{StateVals}}.}
 
 \item{\code{lys}}{If \code{TRUE}, then life-years are simulated in addition to QALYs.}
 
@@ -261,7 +262,7 @@ See \code{vignette("expected-values")} for details.
 \item{\code{dr}}{Discount rate.}
 
 \item{\code{type}}{\code{"predict"} for mean values or \code{"random"} for random samples
-as in \verb{$sim()} in \link{StateVals}.}
+as in \verb{$sim()} in \code{\link{StateVals}}.}
 
 \item{\code{by_patient}}{If \code{TRUE}, then QALYs are computed at the patient level.
 If \code{FALSE}, then QALYs are averaged across patients by health state.}

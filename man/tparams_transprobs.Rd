@@ -15,21 +15,22 @@ tparams_transprobs(object, ...)
   tpmatrix_id = NULL,
   times = NULL,
   grp_id = NULL,
-  patient_wt = NULL
+  patient_wt = NULL,
+  ...
 )
 
-\method{tparams_transprobs}{data.table}(object)
+\method{tparams_transprobs}{data.table}(object, ...)
 
-\method{tparams_transprobs}{data.frame}(object)
+\method{tparams_transprobs}{data.frame}(object, ...)
 
-\method{tparams_transprobs}{tpmatrix}(object, tpmatrix_id)
+\method{tparams_transprobs}{tpmatrix}(object, tpmatrix_id, ...)
 }
 \arguments{
 \item{object}{An object of the appropriate class.}
 
 \item{...}{Further arguments passed to or from other methods. Currently unused.}
 
-\item{tpmatrix_id}{An object of class \link{tpmatrix_id} (or an equivalent
+\item{tpmatrix_id}{An object of class \code{\link{tpmatrix_id}} (or an equivalent
 \code{data.table} with the same ID columns as returned by \code{tpmatrix_id()}).}
 
 \item{times}{An optional numeric vector of distinct times to pass to
@@ -56,7 +57,7 @@ Create a list containing predicted transition probabilities at discrete times.
 Since the transition probabilities have presumably
 already been predicted based on covariate values, no input data is required for
 simulation. The class can be instantiated from either an \code{array}, a \code{data.table},
-a \code{data.frame}, or a \link{tpmatrix}.
+a \code{data.frame}, or a \code{\link{tpmatrix}}.
 }
 \details{
 The format of \code{object} depends on its class:
@@ -92,16 +93,16 @@ patient.
 They should be prefixed with "prob_" and ordered rowwise.
 For example, the following columns would be used for a 2x2 transition
 probability matrix:
-\code{probs_1} (1st row, 1st column),
-\code{probs_2} (1st row, 2nd column),
-\code{probs_3} (2nd row, 1st column), and
-\code{probs_4} (2nd row, 2nd column).
+\code{prob_1} (1st row, 1st column),
+\code{prob_2} (1st row, 2nd column),
+\code{prob_3} (2nd row, 1st column), and
+\code{prob_4} (2nd row, 2nd column).
 }
 }
 
 \item{data.frame}{Same as \code{data.table}.}
 
-\item{tpmatrix}{An object of class \link{tpmatrix}.}
+\item{tpmatrix}{An object of class \code{\link{tpmatrix}}.}
 }
 
 A \code{tparams_transprobs} object is also instantiated when creating a

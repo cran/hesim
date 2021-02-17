@@ -25,10 +25,11 @@ patients <- data.table(
 )
 
 # States
-states <- data.table(
+states <- data.table( # Non-death health states
   state_id = 1:4,
-  state_name = c("PrimaryTHR", "SuccessP", "Revision", "SuccessR")
-) # Non-death health states
+  state_name = c("Primary THR", "Sucessful primary", "Revision THR", 
+                 "Successful revision")
+) 
 n_states <- nrow(states)
 
 # "hesim data"
@@ -38,14 +39,16 @@ hesim_dat <- hesim_data(strategies = strategies,
 print(hesim_dat)
 
 ## -----------------------------------------------------------------------------
-state_names <- c("Primary THR", "Sucessful primary", "Revision THR", 
-                 "Successful revision", "Death")
+labs <- get_labels(hesim_dat)
+print(labs)
+
+## -----------------------------------------------------------------------------
 tmat <- rbind(c(NA, 1, NA, NA, 2),
               c(NA, NA, 3, NA, 4),
               c(NA, NA, NA, 5, 6),
               c(NA, NA, 7, NA, 8),
               c(NA, NA, NA, NA, NA))
-colnames(tmat) <- rownames(tmat) <- state_names
+colnames(tmat) <- rownames(tmat) <- names(labs$state_id)
 tmat %>% 
   kable() %>%
   kable_styling()
@@ -186,8 +189,7 @@ utility_tbl <- stateval_tbl(
   data.table(state_id = states$state_id,
              mean = c(0, .85, .3, .75),
              se = c(0, .03, .03, .04)),
-  dist = "beta",
-  hesim_data = hesim_dat
+  dist = "beta"
 )
 head(utility_tbl)
 
@@ -197,8 +199,7 @@ drugcost_tbl <- stateval_tbl(
              state_id = rep(states$state_id, times = n_strategies),
              est = c(394, 0, 0, 0,
                      579, 0, 0, 0)),
-  dist = "fixed",
-  hesim_data = hesim_dat
+  dist = "fixed"
 )
 
 medcost_tbl <- stateval_tbl(
@@ -206,7 +207,6 @@ medcost_tbl <- stateval_tbl(
              mean = c(0, 0, 5294, 0),
              se = c(0, 0, 1487, 0)),
   dist = "gamma",
-  hesim_data = hesim_dat
 )
 
 ## -----------------------------------------------------------------------------
@@ -228,12 +228,14 @@ transmod <- create_IndivCtstmTrans(transmod_params,
 
 ## -----------------------------------------------------------------------------
 # Utility
-utilitymod <- create_StateVals(utility_tbl, n = transmod_coef_def$n)
+utilitymod <- create_StateVals(utility_tbl, n = transmod_coef_def$n, 
+                               hesim_data = hesim_dat)
 
 # Costs
 drugcostmod <- create_StateVals(drugcost_tbl, n = transmod_coef_def$n,
-                                method = "starting")
-medcostmod <- create_StateVals(medcost_tbl, n = transmod_coef_def$n)
+                                method = "starting", hesim_data = hesim_dat)
+medcostmod <- create_StateVals(medcost_tbl, n = transmod_coef_def$n,
+                               hesim_data = hesim_dat)
 costmods <- list(Drug = drugcostmod,
                  Medical = medcostmod)
 
@@ -271,17 +273,14 @@ econmod$sim_costs(dr = .06)
 
 ## -----------------------------------------------------------------------------
 ce_sim <- econmod$summarize()
-ce_sim$qalys[, .(mean = mean(qalys)),
-                by = c("strategy_id")]
-
-ce_sim$costs[category == "total",
-            .(mean = mean(costs)),
-              by = c("strategy_id")]
+summary(ce_sim, labels = labs) %>%
+  format()
 
 ## -----------------------------------------------------------------------------
 cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0.015, dr_costs = .06,
                      k = seq(0, 25000, 500))
-icer_tbl(cea_pw_out)
+icer(cea_pw_out, labels = labs) %>%
+  format(digits_qalys = 3)
 
 ## ---- eval = FALSE, echo = FALSE----------------------------------------------
 #  # Rather than use a piecewise exponential distribution, approximate

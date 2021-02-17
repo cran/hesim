@@ -5,6 +5,42 @@
 #' Simulate health state transitions in a cohort discrete time state transition model.
 #' @format An [R6::R6Class] object.
 #' @seealso [create_CohortDtstmTrans()], [CohortDtstm]
+#' @examples 
+#' library("msm")
+#' library("data.table")
+#' set.seed(101)
+#' 
+#' # Model setup
+#' strategies <- data.table(
+#'   strategy_id = c(1, 2, 3),
+#'   strategy_name = c("SOC", "New 1", "New 2")
+#' )
+#' patients <- data.table(patient_id = 1:2)
+#' hesim_dat <- hesim_data(
+#'   strategies = strategies,
+#'   patients = patients
+#' )
+#'   
+#' 
+#' # Fit multi-state model with panel data via msm
+#' qinit <- rbind(
+#'   c(0, 0.28163, 0.01239),
+#'   c(0, 0, 0.10204),
+#'   c(0, 0, 0)
+#' )
+#' fit <- msm(state_id ~ time, subject = patient_id, 
+#'            data = onc3p[patient_id %in% sample(patient_id, 100)],
+#'            covariates = list("1-2" =~ strategy_name), 
+#'            qmatrix = qinit)
+#' 
+#' # Simulation model
+#' transmod_data <- expand(hesim_dat)
+#' transmod <- create_CohortDtstmTrans(fit,
+#'                                     input_data = transmod_data,
+#'                                     cycle_length = 1/2,
+#'                                     fixedpars = 2,
+#'                                     n = 2)
+#' transmod$sim_stateprobs(n_cycles = 2)
 #' @export
 CohortDtstmTrans <- R6::R6Class("CohortDtstmTrans",
   private = list(
@@ -87,10 +123,10 @@ CohortDtstmTrans <- R6::R6Class("CohortDtstmTrans",
 
   public = list(
     #' @field params Parameters for simulating health state transitions.
-    #' Supports objects of class [tparams_transprobs] or [params_mlogit].
+    #' Supports objects of class [`tparams_transprobs`] or [`params_mlogit`].
     params = NULL,
     
-    #' @field input_data An object of class [input_mats].
+    #' @field input_data An object of class [`input_mats`].
     input_data = NULL,
     
     #' @field cycle_length The length of a model cycle in terms of years.
@@ -127,7 +163,7 @@ CohortDtstmTrans <- R6::R6Class("CohortDtstmTrans",
     #' @description
     #' Simulate probability of being in each health state during each model cycle. 
     #' @param n_cycles The number of model cycles to simulate the model for.
-    #' @return An object of class [stateprobs].
+    #' @return An object of class [`stateprobs`].
     sim_stateprobs = function(n_cycles){
       times <- seq(0, n_cycles * self$cycle_length, length.out = n_cycles + 1)
       stprobs <- C_cohort_dtstm_sim_stateprobs(self, times)
@@ -137,23 +173,28 @@ CohortDtstmTrans <- R6::R6Class("CohortDtstmTrans",
       check_patient_wt(self, stprobs)
       setattr(stprobs, "class", 
               c("stateprobs", "data.table", "data.frame"))
+      setattr(stprobs, "size", 
+              c(get_size(self), n_states = private$get_n_states()))
       return(stprobs[])
     }
   )
 )
 
-#' Create \code{CohortDtstmTrans} object
+#' Create `CohortDtstmTrans` object
 #' 
 #' A generic function for creating an object of class `CohortDtstmTrans`.
 #' @param object An object of the appropriate class. 
-#' @param ... Further arguments passed to `CohortDtstmTrans$new()` in 
-#' \code{CohortDtstmTrans}.
+#' @param ... Further arguments passed to or from other methods. Currently unused.
 #' @param input_data An object of class `expanded_hesim_data` returned by 
 #' [expand.hesim_data()]
+#' @param cycle_length The length of a model cycle in terms of years. The default 
+#' is 1 meaning that model cycles are 1 year long.
 #' @param trans_mat A transition matrix describing the states and transitions 
-#' in a discrete-time multi-state model. See [CohortDtstmTrans].
+#' in a discrete-time multi-state model. See [`CohortDtstmTrans`].
 #' @param n Number of random observations of the parameters to draw.
-#' @param point_estimate If `TRUE`, then the point estimates are returned and and no samples are drawn.
+#' @param uncertainty Method determining how parameter uncertainty should be handled. See
+#'  documentation in [`create_params()`].
+#' @seealso [`CohortDtstmTrans`]
 #' @export
 create_CohortDtstmTrans <- function(object, ...){
   UseMethod("create_CohortDtstmTrans", object)
@@ -163,12 +204,42 @@ create_CohortDtstmTrans <- function(object, ...){
 #' @rdname create_CohortDtstmTrans
 create_CohortDtstmTrans.multinom_list <- function(object, input_data,
                                                   trans_mat,
-                                                  n = 1000, point_estimate = FALSE,
+                                                  n = 1000, 
+                                                  uncertainty = c("normal", "none"),
                                                   ...){
+  # For backwards compatibility until deprecated point_estimate argument is no longer supported
+  dots <- list(...)  
+  uncertainty <- deprecate_point_estimate(dots$point_estimate, uncertainty,
+                                          missing(uncertainty))
+  dots <- dots[names(dots) != "point_estimate"]
+  
+  # Code to always keep
+  uncertainty <- match.arg(uncertainty)
   input_mats <- create_input_mats(object, input_data)
-  params <- create_params(object, n = n, point_estimate = point_estimate)
-  return(CohortDtstmTrans$new(params = params, input_data = input_mats, 
-                              trans_mat = trans_mat, ...))
+  params <- create_params(object, n = n, uncertainty = uncertainty)
+  return(
+    do.call(CohortDtstmTrans$new, 
+            c(list(params = params, input_data = input_mats, trans_mat = trans_mat),
+              dots))
+  )
+}
+
+#' @export
+#' @rdname create_CohortDtstmTrans
+create_CohortDtstmTrans.msm <- function(object, input_data,
+                                        cycle_length,
+                                        n = 1000, 
+                                        uncertainty = c("normal", "none"),
+                                        ...){
+  uncertainty <- match.arg(uncertainty)
+  qmat <- qmatrix(object, newdata = input_data, uncertainty = uncertainty, n = n)
+  tpmat <- expmat(qmat, t = cycle_length)
+  if (uncertainty == "none") n <- 1
+  tpmat_id <- tpmatrix_id(input_data, n)
+  tparams <- tparams_transprobs(tpmat, tpmat_id)
+  return(
+    CohortDtstmTrans$new(params = tparams, cycle_length = cycle_length)
+  )
 }
 
 # CohortDtstm ------------------------------------------------------------------
@@ -178,107 +249,173 @@ create_CohortDtstmTrans.multinom_list <- function(object, input_data,
 #' Simulate outcomes from a cohort discrete time state transition model.
 #' @examples 
 #' library("data.table")
-#' library("nnet")
-#' transitions_data <- data.table(multinom3_exdata$transitions)
+#' library("ggplot2")
+#' theme_set(theme_bw())
+#' set.seed(102)
 #'
-#' # Treatment strategies, target population, and model structure
-#' n_patients <- 4
-#'patients <- transitions_data[year == 1, .(patient_id, age, female)][
-#'  sort(sample.int(nrow(transitions_data[year == 1]), n_patients))][
-#'    , grp_id := 1:n_patients]
+#' # NOTE: This example replicates the "Simple Markov cohort model" vignette
+#' # using a different approach (i.e., one that is not based on non-standard
+#' # evaluation). The non-standard evaluation based approach does (more or less) 
+#' # what is done here under the hood.
+#'
+#' # (0) Model setup
 #' hesim_dat <- hesim_data(
-#'   patients = patients,
-#'   strategies = data.table(strategy_id = 1:2,
-#'                           strategy_name = c("Reference", "Intervention")),
-#'   states = data.table(state_id = c(1, 2),
-#'                       state_name = c("Healthy", "Sick")) # Non-death health states
+#'   strategies = data.table(
+#'     strategy_id = 1:2,
+#'      strategy_name = c("Monotherapy", "Combination therapy")
+#'   ),
+#'   patients <- data.table(patient_id = 1),
+#'   states = data.table(
+#'     state_id = 1:3,
+#'     state_name = c("State A", "State B", "State C")
+#'   )
 #' )
-#' tmat <- rbind(c(0, 1, 2),
-#'               c(NA, 0, 1),
-#'               c(NA, NA, NA))
+#' n_states <- nrow(hesim_dat$states) + 1
+#' labs <- get_labels(hesim_dat)
 #'
-#' # Parameter estimation
-#' ## Multinomial logistic regression
-#' data_healthy <- transitions_data[state_from == "Healthy"]
-#' fit_healthy <- multinom(state_to ~ strategy_name + female + age,
-#'                         data = data_healthy, trace = FALSE)
-#' data_sick <- droplevels(transitions_data[state_from == "Sick"])
-#' fit_sick <- multinom(state_to ~ strategy_name + female + age,
-#'                      data = data_sick, trace = FALSE)
-#' transfits <- multinom_list(healthy = fit_healthy, sick = fit_sick)
+#' # (1) Parameters
+#' n_samples <- 10 # Number of samples for PSA
+#'
+#' ## Transition matrix
+#' ### Input data (one transition matrix for each parameter sample, 
+#' ###             treatment strategy, patient, and time interval)
+#' p_id <- tpmatrix_id(expand(hesim_dat, times = c(0, 2)), n_samples)
+#' N <- nrow(p_id)
+#'
+#' ### Transition matrices (one for each row in p_id)
+#' p <- array(NA, dim = c(n_states, n_states, nrow(p_id)))
+#'
+#' #### Baseline risk
+#' trans_mono <- rbind(
+#'   c(1251, 350, 116, 17),
+#'   c(0, 731, 512, 15),
+#'   c(0, 0, 1312, 437),
+#'   c(0, 0, 0, 469)
+#' )  
+#' mono_ind <- which(p_id$strategy_id == 1 | p_id$time_id == 2)
+#' p[,, mono_ind] <- rdirichlet_mat(n = 2, trans_mono)
+#'
+#' #### Apply relative risks
+#' combo_ind <- setdiff(1:nrow(p_id), mono_ind)
+#' lrr_se <- (log(.710) - log(.365))/(2 * qnorm(.975))
+#' rr <- rlnorm(n_samples, meanlog = log(.509), sdlog = lrr_se)
+#' rr_indices <- list( # Indices of transition matrix to apply RR to
+#'   c(1, 2), c(1, 3), c(1, 4),
+#'   c(2, 3), c(2, 4),
+#'   c(3, 4)
+#' )
+#' rr_mat <- matrix(rr, nrow = n_samples, ncol = length(rr_indices))
+#' p[,, combo_ind] <- apply_rr(p[, , mono_ind], 
+#'                             rr = rr_mat, 
+#'                             index = rr_indices)
+#' tp <- tparams_transprobs(p, p_id)
 #'
 #' ## Utility
-#' utility_tbl <- stateval_tbl(multinom3_exdata$utility,
-#'                             dist = "beta",
-#'                             hesim_data = hesim_dat)
+#' utility_tbl <- stateval_tbl(
+#'   data.table(
+#'     state_id = 1:3,
+#'     est = c(1, 1, 1)
+#'   ),
+#'   dist = "fixed"
+#' )
 #'
 #' ## Costs
-#' drugcost_tbl <- stateval_tbl(multinom3_exdata$costs$drugs,
-#'                              dist = "fixed",
-#'                              hesim_data = hesim_dat) 
-#' medcost_tbl <- stateval_tbl(multinom3_exdata$costs$medical,
-#'                             dist = "gamma",
-#'                             hesim_data = hesim_dat)  
+#' drugcost_tbl <- stateval_tbl(
+#'   data.table(
+#'     strategy_id = c(1, 1, 2, 2),
+#'     time_start = c(0, 2, 0, 2),
+#'     est = c(2278, 2278, 2278 + 2086.50, 2278)
+#'   ),
+#'   dist = "fixed"
+#' )
 #'
-#'# Economic model
-#' n_samples <- 3
+#' dmedcost_tbl <- stateval_tbl(
+#'   data.table(
+#'     state_id = 1:3,
+#'     mean = c(A = 1701, B = 1774, C = 6948),
+#'     se = c(A = 1701, B = 1774, C = 6948)
+#'   ),
+#'   dist = "gamma"
+#' )
 #'
-#' ## Construct model
-#' ### Transitions
-#' transmod_data <- expand(hesim_dat)
-#' transmod <- create_CohortDtstmTrans(transfits,
-#'                                     input_data = transmod_data,
-#'                                     trans_mat = tmat,
-#'                                     n = n_samples,
-#'                                     point_estimate = FALSE)
+#' cmedcost_tbl <- stateval_tbl(
+#'   data.table(
+#'     state_id = 1:3,
+#'     mean = c(A = 1055, B = 1278, C = 2059),
+#'     se = c(A = 1055, B = 1278, C = 2059)
+#'   ),
+#'   dist = "gamma"
+#' )
+#'
+#' # (2) Simulation
+#' ## Constructing the economic model
+#' ### Transition probabilities
+#' transmod <- CohortDtstmTrans$new(params = tp)
 #'
 #' ### Utility
-#' utilitymod <- create_StateVals(utility_tbl, n = n_samples)
+#' utilitymod <- create_StateVals(utility_tbl, 
+#'                                hesim_data = hesim_dat,
+#'                                n = n_samples)
 #'
 #' ### Costs
-#' drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples)
-#' medcostmod <- create_StateVals(medcost_tbl, n = n_samples)
-#' costmods <- list(Drug = drugcostmod,
-#'                  Medical = medcostmod)
+#' drugcostmod <- create_StateVals(drugcost_tbl, 
+#'                                 hesim_data = hesim_dat,
+#'                                 n = n_samples)
+#' dmedcostmod <- create_StateVals(dmedcost_tbl, 
+#'                                 hesim_data = hesim_dat,
+#'                                 n = n_samples)
+#' cmedcostmod <- create_StateVals(cmedcost_tbl, 
+#'                                 hesim_data = hesim_dat,
+#'                                 n = n_samples)
+#' costmods <- list(drug = drugcostmod,
+#'                  direct_medical = dmedcostmod,
+#'                  community_medical = cmedcostmod)
 #'
-#' ### Combine
+#' ### Economic model
 #' econmod <- CohortDtstm$new(trans_model = transmod,
 #'                            utility_model = utilitymod,
 #'                            cost_models = costmods)
 #'
-#' ## Simulate outcomes
+#' ## Simulating outcomes
 #' econmod$sim_stateprobs(n_cycles = 20)
-#' econmod$sim_qalys(dr = .03)
-#' econmod$sim_costs(dr = .03)
-#' econmod$summarize()
-#' econmod$summarize(by_grp = TRUE)
+#' autoplot(econmod$stateprobs_, ci = TRUE, ci_style = "ribbon",
+#'          labels = labs)
+#' econmod$sim_qalys(dr = 0, integrate_method = "riemann_right")
+#' econmod$sim_costs(dr = 0.06, integrate_method = "riemann_right")
 #'
+#' # (3) Decision analysis
+#' ce_sim <- econmod$summarize()
+#' wtp <- seq(0, 25000, 500)
+#' cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0, dr_costs = .06,
+#'                      k = wtp)
+#' format(icer(cea_pw_out))
 #' @format An [R6::R6Class] object.
-#' @seealso [create_CohortDtstm()], [CohortDtstmTrans], 
-#' [create_CohortDtstmTrans()]
+#' @seealso [`create_CohortDtstm()`], [`CohortDtstmTrans`], 
+#' [`create_CohortDtstmTrans()`],  `vignette("markov-cohort")`,
+#' `vignette("markov-inhomogeneous-cohort")`, `vignette("mlogit")`,
 #' @export
 CohortDtstm <- R6::R6Class("CohortDtstm",
   public = list(
     #' @field trans_model The model for health state transitions. Must be an object 
-    #' of class [CohortDtstmTrans]. 
+    #' of class [`CohortDtstmTrans`]. 
     trans_model = NULL,
     
     #' @field utility_model The model for health state utility. Must be an object of
-    #' class [StateVals].
+    #' class [`StateVals`].
     utility_model = NULL,
     
     #' @field cost_models The models used to predict costs by health state. 
-    #' Must be a list of objects of class [StateVals], where each element of the 
+    #' Must be a list of objects of class [`StateVals`], where each element of the 
     #' list represents a different cost category.
     cost_models = NULL,
     
-    #' @field stateprobs_ An object of class [stateprobs] simulated using `$sim_stateprobs()`.
+    #' @field stateprobs_ An object of class [`stateprobs`] simulated using `$sim_stateprobs()`.
     stateprobs_ = NULL,
     
-    #' @field qalys_ An object of class [qalys] simulated using `$sim_qalys()`.
+    #' @field qalys_ An object of class [`qalys`] simulated using `$sim_qalys()`.
     qalys_ = NULL,
     
-    #' @field costs_ An object of class [costs] simulated using `$sim_costs()`.
+    #' @field costs_ An object of class [`costs`] simulated using `$sim_costs()`.
     costs_ = NULL,
     
     #' @description
@@ -348,15 +485,15 @@ CohortDtstm <- R6::R6Class("CohortDtstm",
 
 #' Create \code{CohortDtstm} object
 #' 
-#' A generic function for creating an object of class [CohortDtstm].
+#' A generic function for creating an object of class [`CohortDtstm`].
 #' @param object An object of the appropriate class. 
-#' @param input_data 	An object of class [expanded_hesim_data][expand.hesim_data()].
+#' @param input_data 	An object of class [`expanded_hesim_data`][expand.hesim_data()].
 #' @param cost_args A list of further arguments passed to `StateVals$new()` in 
-#' [StateVals] when initiating cost models.
+#' [`StateVals`] when initiating cost models.
 #' @param utility_args A list of further arguments passed to `StateVals$new()` in
-#' [StateVals] when initiating the utility model.
+#' [`StateVals`] when initiating the utility model.
 #' @param ... Further arguments passed to `CohortDtstmTrans$new()` in 
-#' [CohortDtstmTrans]. 
+#' [`CohortDtstmTrans`]. 
 #'  
 #' @export
 create_CohortDtstm <- function(object, ...){

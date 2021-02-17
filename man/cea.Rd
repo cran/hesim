@@ -82,7 +82,7 @@ for the range of specified willingness to pay values.}
 \code{cea_pw} also returns a list of four \code{data.table} elements:
 \describe{
 \item{summary}{A data.table of the mean, 2.5\% quantile, and 97.5\%
-quantile by strategy and group for clinical effectiveness and costs.}
+quantile by strategy and group for incremental clinical effectiveness and costs.}
 \item{delta}{Incremental effectiveness and incremental cost for each simulated
 parameter set by strategy and group. Can be used to plot a cost-effectiveness plane. }
 \item{ceac}{Values needed to plot a cost-effectiveness acceptability curve by
@@ -107,34 +107,52 @@ and output for a cost-effectiveness acceptability curve.
 }
 }
 \examples{
-# simulation output
-n_samples <- 100
-sim <- data.frame(sample = rep(seq(n_samples), 4),
+library("data.table")
+library("ggplot2")
+theme_set(theme_bw())
+
+# Simulation output
+n_samples <- 30
+
+sim <- data.table(sample = rep(seq(n_samples), 4),
                   c = c(rlnorm(n_samples, 5, .1), rlnorm(n_samples, 5, .1),
                         rlnorm(n_samples, 11, .1), rlnorm(n_samples, 11, .1)),
                   e = c(rnorm(n_samples, 8, .2), rnorm(n_samples, 8.5, .1),
                         rnorm(n_samples, 11, .6), rnorm(n_samples, 11.5, .6)),
-                  strategy = rep(paste0("Strategy ", seq(1, 2)),
-                                 each = n_samples * 2),
-                  grp = rep(rep(c("Group 1", "Group 2"),
-                            each = n_samples), 2)
+                  strategy_id = rep(1:2, each = n_samples * 2),
+                  grp_id = rep(rep(1:2, each = n_samples), 2)
 )
 
-# cea
-cea <- cea(sim, k = seq(0, 200000, 500), sample = "sample", strategy = "strategy",
-             grp = "grp", e = "e", c = "c")
-names(cea)
-# The probability that each strategy is the most cost-effective 
-# in each group with a willingness to pay of 20,000
-library("data.table")
-cea$mce[k == 20000]
+# Cost-effectiveness analysis
+cea_out <- cea(sim, k = seq(0, 200000, 500), sample = "sample", 
+               strategy = "strategy_id", grp = "grp_id", 
+               e = "e", c = "c")
+names(cea_out)
 
-# cea_pw
-cea_pw <-  cea_pw(sim,  k = seq(0, 200000, 500), comparator = "Strategy 1",
-                    sample = "sample", strategy = "strategy", grp = "grp",
-                     e = "e", c = "c")
-names(cea_pw)
-# cost-effectiveness acceptability curve
-head(cea_pw$ceac[k >= 20000])
-icer_tbl(cea_pw)
+## Some sample output
+## The probability that each strategy is the most cost-effective 
+## in each group with a willingness to pay of 20,000
+cea_out$mce[k == 20000]
+
+# Pairwise cost-effectiveness analysis
+cea_pw_out <-  cea_pw(sim,  k = seq(0, 200000, 500), comparator = 1,
+                      sample = "sample", strategy = "strategy_id", 
+                      grp = "grp_id", e = "e", c = "c")
+names(cea_pw_out)
+
+## Some sample output
+## The cost-effectiveness acceptability curve
+head(cea_pw_out$ceac[k >= 20000])
+
+# Summarize the incremental cost-effectiveness ratio
+labs <- list(strategy_id = c("Strategy 1" = 1, "Strategy 2" = 2),
+             grp_id = c("Group 1" = 1, "Group 2" = 2))
+format(icer(cea_pw_out, labels = labs))
+
+# Plots
+plot_ceplane(cea_pw_out, label = labs)
+plot_ceac(cea_out, label = labs)
+plot_ceac(cea_pw_out, label = labs)
+plot_ceaf(cea_out, label = labs)
+plot_evpi(cea_out, label = labs)
 }

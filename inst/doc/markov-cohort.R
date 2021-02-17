@@ -1,3 +1,7 @@
+## ---- include = FALSE---------------------------------------------------------
+library("ggplot2")
+theme_set(theme_bw())
+
 ## ---- out.width = "700px", echo = FALSE---------------------------------------
 knitr::include_graphics("markov-cohort.png")
 
@@ -7,9 +11,16 @@ library("data.table")
 strategies <- data.table(strategy_id = 1:2,
                          strategy_name = c("Monotherapy", "Combination therapy"))
 patients <- data.table(patient_id = 1)
+states <- data.table(state_id = 1:3,
+                     state_name = c("State A", "State B", "State C"))
 hesim_dat <- hesim_data(strategies = strategies,
-                        patients = patients)
+                        patients = patients,
+                        states = states)
 print(hesim_dat)
+
+## -----------------------------------------------------------------------------
+labs <- get_labels(hesim_dat)
+print(labs)
 
 ## -----------------------------------------------------------------------------
 trans_mono <- matrix(c(1251, 350, 116, 17,
@@ -84,29 +95,21 @@ mod_def <- define_model(tparams_def = tparams_def,
 ## ----econmod------------------------------------------------------------------
 econmod <- create_CohortDtstm(mod_def, input_data)
 
-## ----simStateprobs, fig.width = 7, fig.height = 6-----------------------------
+## ----simStateprobs------------------------------------------------------------
 econmod$sim_stateprobs(n_cycles = 20)
+head(econmod$stateprobs_)
 
-# Plot
-library("ggplot2")
-theme_set(theme_bw())
-stateprob_summary <- econmod$stateprobs_[, .(prob_mean = mean(prob),
-                                              prob_lower = quantile(prob, .025),
-                                              prob_upper = quantile(prob, .975)),
-                                          by = c("strategy_id", "state_id", "t")]
-stateprob_summary[, strategy_name := factor(strategy_id,
-                                          labels = strategies$strategy_name)]
-ggplot(stateprob_summary, aes(x = t, y = prob_mean)) +
-  geom_line(aes(col = strategy_name)) +
-  geom_ribbon(aes(x = t, ymin = prob_lower, ymax = prob_upper,
-                  fill = strategy_name), alpha = .3) +
-  facet_wrap(~factor(state_id, labels = LETTERS[1:4])) +
-  xlab("Year") + ylab("Probability") +
-  scale_fill_discrete("Strategy") + scale_color_discrete("Strategy")
+## ----simStateprobsPlot, fig.width = 7, fig.height = 6-------------------------
+autoplot(econmod$stateprobs_, labels = labs,
+         ci = TRUE, ci_style = "ribbon")
 
-## ----simStateVals-------------------------------------------------------------
+## ----simQALYs-----------------------------------------------------------------
 econmod$sim_qalys(dr = 0, integrate_method = "riemann_right")
+head(econmod$qalys_)
+
+## ----simCosts-----------------------------------------------------------------
 econmod$sim_costs(dr = 0.06, integrate_method = "riemann_right")
+head(econmod$costs_)
 
 ## ----cea----------------------------------------------------------------------
 ce_sim <- econmod$summarize()
@@ -115,14 +118,8 @@ cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0, dr_costs = .06,
                      k = wtp)
 
 ## ----icer---------------------------------------------------------------------
-icer_tbl(cea_pw_out)
+format(icer(cea_pw_out))
 
 ## ----ceac, fig.width = 6, fig.height = 4--------------------------------------
-ggplot(cea_pw_out$ceac, 
-       aes(x = k, y = prob, 
-           col = factor(strategy_id, labels = strategies$strategy_name[-1]))) +
-  geom_line()  + xlab("Willingness to pay") +
-  ylab("Probability cost-effective") +
-  scale_x_continuous(breaks = seq(0, max(wtp), 5000), label = scales::dollar) +
-  theme(legend.position = "bottom") + scale_colour_discrete(name = "Strategy")
+plot_ceac(cea_pw_out, labels = labs)
 

@@ -6,7 +6,7 @@
 #' as a function of covariates contained in input matrices ([input_mats]).
 #' 
 #' @name params
-#' @seealso [tparams]
+#' @seealso [`tparams`]
 NULL
 
 # Helper functions -------------------------------------------------------------
@@ -37,24 +37,24 @@ check_params_joined <- function(x, inner_class, model_list){
   return(x)
 }
 
-create_params_list <- function(object, n, point_estimate, inner_class, new_class,
+create_params_list <- function(object, n, uncertainty, inner_class, new_class,
                                ...){
   n_objects <- length(object)
   params_list <- vector(mode = "list", length = n_objects)
   names(params_list) <- names(object)
   for (i in 1:n_objects){
-    params_list[[i]] <- create_params(object[[i]], n, point_estimate, ...)
+    params_list[[i]] <- create_params(object[[i]], n, uncertainty, ...)
   }
   return(new_params_list(params_list, inner_class = inner_class,
                          new_class = new_class))
 }
 
-create_params_joined <- function(object, n, point_estimate, inner_class){
+create_params_joined <- function(object, n, uncertainty, inner_class){
   n_models <- length(object$models)
   models <- vector(mode = "list", length = n_models)
   names(models) <- names(object$models)
   for (i in 1:n_models){
-    models[[i]] <- create_params(object$models[[i]], n, point_estimate)
+    models[[i]] <- create_params(object$models[[i]], n = n, uncertainty = uncertainty)
   }
   return(new_params_joined(models, times = object$times, inner_class = inner_class))
 }
@@ -62,26 +62,26 @@ create_params_joined <- function(object, n, point_estimate, inner_class){
 #' Create a parameter object from a fitted model
 #' 
 #' `create_params` is a generic function for creating an object containing 
-#' parameters from a fitted statistical model. If `point_estimate = FALSE`,
+#' parameters from a fitted statistical model. If `uncertainty != "none"`,
 #' then random samples from suitable probability distributions are returned.
 #' @param object A statistical model to randomly sample parameters from.  
-#' @param n Number of random observations to draw. 
-#' @param point_estimate If TRUE, then the point estimates are returned and
-#' and no samples are drawn.
-#' @param bootstrap If `bootstrap` is `FALSE` or not specified, then `n` parameter sets are 
-#' drawn by sampling from a multivariate normal distribution. If `bootstrap` is `TRUE`, then 
-#' parameters are bootstrapped using [bootstrap]. 
-#' @param max_errors Equivalent to the `max_errors` argument in [bootstrap]. 
-#' @param ... Further arguments passed to or from other methods. Currently unused.
+#' @param n Number of random observations to draw. Not used if `uncertainty = "none"`.
+#' @param uncertainty Method determining how parameter uncertainty should be handled. 
+#' If `"normal"`, then parameters are randomly drawn from their multivariate normal
+#' distribution. If `"bootstrap`, then parameters are bootstrapped using [`bootstrap`].
+#' If `"none`, then only point estimates are returned.
+#' @param ... Further arguments passed to or from other methods. Only used when
+#'  `object` is of class `partsurvfit`, in which case the arguments are passed 
+#'  to [`bootstrap.partsurvfit()`].
 #' @return An object prefixed by `params_`. Mapping between `create_params` 
 #' and the classes of the returned objects are: 
 #' \itemize{
-#' \item{`create_params.lm` ->}{ [params_lm]}
-#' \item{`create_params.multinom` ->}{ [params_mlogit]}
-#' \item{`create_params.multinom_list` ->}{ [params_mlogit_list]}
-#' \item{`create_params.flexsurvreg` ->}{ [params_surv]}
-#' \item{`create_params.flexsurvreg_list` ->}{ [params_surv_list]}
-#' \item{`create_params.partsurvfit` ->}{ [params_surv_list]}
+#' \item{`create_params.lm` ->}{ [`params_lm`]}
+#' \item{`create_params.multinom` ->}{ [`params_mlogit`]}
+#' \item{`create_params.multinom_list` ->}{ [`params_mlogit_list`]}
+#' \item{`create_params.flexsurvreg` ->}{ [`params_surv`]}
+#' \item{`create_params.flexsurvreg_list` ->}{ [`params_surv_list`]}
+#' \item{`create_params.partsurvfit` ->}{ [`params_surv_list`]}
 #' }
 #' @name create_params
 #' @examples 
@@ -162,9 +162,9 @@ check.params_lm <- function(object){
 #' Parameters of a list of linear models
 #' 
 #' Create a list containing the parameters of a list of fitted linear regression models.
-#' @param ... Objects of class [params_lm], which can be named.
+#' @param ... Objects of class [`params_lm`], which can be named.
 #' 
-#' @return An object of class `params_lm_list`, which is a list containing [params_lm]
+#' @return An object of class `params_lm_list`, which is a list containing [`params_lm`]
 #' objects. 
 #' @export
 #' @keywords internal
@@ -194,8 +194,13 @@ check.params_lm_list <- function(object){
 
 #' @export
 #' @rdname create_params
-create_params.lm <- function(object, n = 1000, point_estimate = FALSE, ...){
-  if (point_estimate == FALSE){
+create_params.lm <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                             ...){
+  uncertainty <- deprecate_point_estimate(list(...)$point_estimate, uncertainty,
+                                          missing(uncertainty))
+  uncertainty <- match.arg(uncertainty)
+  
+  if (uncertainty == "normal"){
     coefs_sim <- MASS::mvrnorm(n, stats::coef(object), stats::vcov(object))
     if(is.vector(coefs_sim)) coefs_sim <- matrix(coefs_sim, nrow = 1)
     return(new_params_lm(coefs = coefs_sim,
@@ -213,8 +218,9 @@ create_params.lm <- function(object, n = 1000, point_estimate = FALSE, ...){
 #' @export
 # #' @rdname create_params
 #' @keywords internal
-create_params.lm_list <- function(object, n = 1000, point_estimate = FALSE, ...){
-  return(create_params_list(object, n, point_estimate, 
+create_params.lm_list <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                                   ...){
+  return(create_params_list(object, n = n, uncertainty = uncertainty, 
                             inner_class = "params_lm", new_class = "params_lm_list"))
 }
 
@@ -252,52 +258,52 @@ create_params.lm_list <- function(object, n = 1000, point_estimate = FALSE, ...)
 #' \itemize{
 #' \item{`exponential` or `exp`}{ Exponential distribution. `coef`
 #' must contain the `rate` parameter on the log scale and the same parameterization as in 
-#' [stats::Exponential]}.
+#' [`stats::Exponential`]}.
 #' 
 #' \item{`weibull` or `weibull.quiet`}{ Weibull distribution. The first 
 #' element of `coef` is the `shape` parameter (on the log scale) and the second
 #' element is the `scale` parameter (also on the log scale). The parameterization is
-#' that same as in [stats::Weibull].}
+#' that same as in [`stats::Weibull`].}
 #' 
 #' \item{`weibullPH`}{ Weibull distribution with a proportional hazards 
 #' parameterization. The first element of `coef` is the `shape` parameter 
 #' (on the log scale) and the second element is the `scale` parameter 
 #' (also on the log scale). The parameterization is
-#' that same as in [flexsurv::WeibullPH].}
+#' that same as in [`flexsurv::WeibullPH`].}
 #' 
 #' \item{`gamma`}{ Gamma distribution. The first 
 #' element of `coef` is the `shape` parameter (on the log scale) and the second
 #' element is the `rate` parameter (also on the log scale). The parameterization is
-#' that same as in [stats::GammaDist].}
+#' that same as in [`stats::GammaDist`].}
 #' 
 #' \item{`lnorm`}{ Lognormal distribution. The first 
 #' element of `coef` is the `meanlog` parameter (i.e., the mean of survival on 
 #' the log scale) and the second element is the `sdlog` parameter (i.e.,
 #'  the standard deviation of survival on the log scale). The parameterization is
-#' that same as in [stats::Lognormal]. The coefficients predicting the `meanlog` 
+#' that same as in [`stats::Lognormal`]. The coefficients predicting the `meanlog` 
 #' parameter are untransformed whereas the coefficients predicting the `sdlog` 
 #' parameter are defined on the log scale.}
 #' 
 #' \item{`gompertz`}{ Gompertz distribution. The first 
 #' element of `coef` is the `shape` parameter and the second
 #' element is the `rate` parameter (on the log scale). The parameterization is
-#' that same as in [flexsurv::Gompertz].}
+#' that same as in [`flexsurv::Gompertz`].}
 #' 
 #' \item{`llogis`}{ Log-logistic distribution. The first 
 #' element of `coef` is the `shape` parameter (on the log scale) and the second
 #' element is the `scale` parameter (also on the log scale). The parameterization is
-#' that same as in [flexsurv::Llogis].}
+#' that same as in [`flexsurv::Llogis`].}
 #' 
 #' \item{`gengamma`}{ Generalized gamma distribution. The first 
 #' element of `coef` is the location parameter `mu`, the second
 #' element is the scale parameter `sigma` (on the log scale), and the
 #' third element is the shape parameter `Q`. The parameterization is
-#' that same as in [flexsurv::GenGamma].}
+#' that same as in [`flexsurv::GenGamma`].}
 #' 
 #' \item{`survspline`}{ Survival splines. Each element of `coef` is a parameter of the
 #' spline model (i.e. `gamma_0`, `gamma_1`, \eqn{\ldots}) with length equal
 #' to the number of knots (including the boundary knots). See below for details on the
-#' auxiliary arguments. The parameterization is that same as in [flexsurv::Survspline].}
+#' auxiliary arguments. The parameterization is that same as in [`flexsurv::Survspline`].}
 #' 
 #' \item{`fracpoly`}{ Fractional polynomials. Each element of `coef` is a parameter of the
 #' fractional polynomial model (i.e. `gamma_0`, `gamma_1`, \eqn{\ldots}) with length equal
@@ -472,8 +478,12 @@ flexsurvreg_aux <- function(object){
 
 #' @export
 #' @rdname create_params
-create_params.flexsurvreg <- function(object, n = 1000, point_estimate = FALSE, ...){
-  if (point_estimate == FALSE){
+create_params.flexsurvreg <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                                      ...){
+  uncertainty <- deprecate_point_estimate(list(...)$point_estimate, uncertainty,
+                                          missing(uncertainty))
+  uncertainty <- match.arg(uncertainty)
+  if (uncertainty == "normal"){
     sim <- flexsurv::normboot.flexsurvreg(object, B = n, raw = TRUE, 
                                           transform = TRUE)
     n_samples <- n
@@ -487,6 +497,7 @@ create_params.flexsurvreg <- function(object, n = 1000, point_estimate = FALSE, 
   inds <- flexsurvreg_inds(object)
   for (j in seq_along(object$dlist$pars)){
     coefs[[j]] <- sim[, inds[[j]], drop = FALSE]
+    colnames(coefs[[j]])[1] <- "(Intercept)"
   }
   return(new_params_surv(dist = object$dlist$name,
                          coefs = coefs,
@@ -540,20 +551,20 @@ check.params_mlogit <- function(object){
 #' Parameters of a list of multinomial logit models
 #' 
 #' Create a list containing the parameters of multiple fitted multinomial logit models.
-#' @param ... Objects of class [params_mlogit], which can be named.
+#' @param ... Objects of class [`params_mlogit`], which can be named.
 #' 
 #' @return An object of class `params_mlogit_list`, which is a list containing 
-#' [params_mlogit] objects.
+#' [`params_mlogit`] objects.
 #' @export
 params_mlogit_list <- function(...){
   return(check(new_params_list(..., inner_class = "params_mlogit", 
                                new_class = "params_mlogit_list")))
 }
 
-create_coef_multinom <- function(object, n = 1000, point_estimate = FALSE, ...){
+create_coef_multinom <- function(object, n = 1000, uncertainty){
   # Extract/simulate coefficients
   coefs <- c(t(stats::coef(object)))
-  if (point_estimate == FALSE){
+  if (uncertainty == "normal"){
     coefs_sim <- MASS::mvrnorm(n = n, 
                                mu = coefs,
                                Sigma = stats::vcov(object))
@@ -593,9 +604,13 @@ create_coef_multinom <- function(object, n = 1000, point_estimate = FALSE, ...){
 
 #' @export
 #' @rdname create_params
-create_params.multinom <- function(object, n = 1000, point_estimate = FALSE, ...){
-  coefs <- create_coef_multinom(object, n, point_estimate, ...)
-  if (point_estimate){
+create_params.multinom <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                                   ...){
+  uncertainty <- deprecate_point_estimate(list(...)$point_estimate, uncertainty,
+                                          missing(uncertainty))
+  uncertainty <- match.arg(uncertainty)
+  coefs <- create_coef_multinom(object, n, uncertainty)
+  if (uncertainty == "none"){
     n_samples <- 1
   } else{
     n_samples <- n
@@ -606,8 +621,8 @@ create_params.multinom <- function(object, n = 1000, point_estimate = FALSE, ...
 
 #' @export
 #' @rdname create_params
-create_params.multinom_list <- function(object, n = 1000, point_estimate = FALSE, ...){
-  return(create_params_list(object, n, point_estimate, 
+create_params.multinom_list <- function(object, n = 1000, uncertainty = c("normal", "none"), ...){
+  return(create_params_list(object, n = n, uncertainty = uncertainty, 
                             inner_class = "params_mlogit", new_class = "params_mlogit_list",
                             ...))
 }
@@ -616,9 +631,9 @@ create_params.multinom_list <- function(object, n = 1000, point_estimate = FALSE
 #' Parameters of a list of survival models
 #' 
 #' Create a list containing the parameters of multiple fitted parametric survival models.
-#' @param ... Objects of class \code{\link{params_surv}}, which can be named.
+#' @param ... Objects of class [`params_surv`], which can be named.
 #' 
-#' @return An object of class "params_surv_list", which is a list containing \code{params_surv}
+#' @return An object of class `params_surv_list`, which is a list containing [`params_surv`]
 #' objects.
 #' @examples 
 #' library("flexsurv")
@@ -643,24 +658,22 @@ check.params_surv_list <- function(object){
 
 #' @export
 #' @rdname create_params
-create_params.flexsurvreg_list <- function(object, n = 1000, point_estimate = FALSE, ...){
-  return(create_params_list(object, n, point_estimate, 
+create_params.flexsurvreg_list <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                                           ...){
+  return(create_params_list(object, n = n, uncertainty = uncertainty, 
                             inner_class = "params_surv", new_class = "params_surv_list"))
 }
 
 #' @export
 #' @rdname create_params
-create_params.partsurvfit <- function(object, n = 1000, point_estimate = FALSE, 
-                                      bootstrap = TRUE, max_errors = 0, ...){
-  if (point_estimate == TRUE & bootstrap == TRUE){
-    msg <- paste0("When 'point_estimate' = TRUE and 'bootstrap' = TRUE, the 'point_estimate' ",
-                  "argument is ignored and bootstrap replications are generated.")
-    warning(msg, call. = FALSE)
-  }
-  if(bootstrap){
-    res <- bootstrap(object, B = n, max_errors = max_errors)
+create_params.partsurvfit <- function(object, n = 1000, 
+                                      uncertainty = c("normal", "bootstrap", "none"), 
+                                      ...){
+  uncertainty <- match.arg(uncertainty)
+  if(uncertainty == "bootstrap"){
+    res <- bootstrap(object, B = n, ...)
   } else{
-    res <- create_params(object$models, n = n, point_estimate = point_estimate)
+    res <- create_params(object$models, n = n, uncertainty = uncertainty)
   }
   return(res)
 }
@@ -670,14 +683,14 @@ create_params.partsurvfit <- function(object, n = 1000, point_estimate = FALSE,
 #' 
 #' Create a list containing the parameters of survival models joined at specified time points. See
 #' \code{\link{joined}} for more details.
-#' @param ... Objects of class \code{\link{params_surv}}, which can be named.
+#' @param ... Objects of class [`params_surv`], which can be named.
 #' @param times A numeric vector of times at which to join models.
 #' 
-#' @return An object of class "params_joined_surv", which is a list containing two elements:
+#' @return An object of class `params_joined_surv`, which is a list containing two elements:
 #' \describe{
-#' \item{models}{A list of \code{\link{params_surv}} objects from each statistical model
+#' \item{models}{A list of [`params_surv`] objects from each statistical model
 #' to be joined.}
-#' \item{times}{Equivalent to the argument \code{times}.}
+#' \item{times}{Equivalent to the argument `times`.}
 #' }
 #' @examples 
 #' library("flexsurv")
@@ -706,16 +719,16 @@ check.params_joined_surv <- function(object, inner_class){
 #' Parameters of joined lists of survival models
 #' 
 #' Create a list containing the parameters of multiple sets of survival models, each joined
-#' at specified time points. See \code{\link{joined}} for more details.
-#' @param ... Objects of class \code{\link{params_surv_list}}, which can be named.
+#' at specified time points. See [`joined`] for more details.
+#' @param ... Objects of class [`params_surv_list`], which can be named.
 #' @param times A list of sorted numeric vectors, with the length of each list element equal
 #' to the number of sets of models.
 #' 
-#' @return An object of class "params_joined_surv_list", which is a list containing two elements:
+#' @return An object of class `params_joined_surv_list`, which is a list containing two elements:
 #' \describe{
-#' \item{models}{A list of \code{\link{params_surv_list}}, each containing code{\link{params_surv}} 
+#' \item{models}{A list of [`params_surv_list`], each containing [`params_surv`] 
 #' objects to be joined.}
-#' \item{times}{Equivalent to the argument \code{times}.}
+#' \item{times}{Equivalent to the argument `times`.}
 #' }
 #' @examples 
 #' library("flexsurv")
@@ -750,14 +763,18 @@ check.params_joined_surv_list <- function(object, inner_class){
 #' @export
 # #' @rdname create_params
 #' @keywords internal
-create_params.joined_flexsurvreg <- function(object, n = 1000, point_estimate = FALSE, ...){
-  return(create_params_joined(object, n, point_estimate, "params_surv"))
+create_params.joined_flexsurvreg <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                                             ...){
+  return(create_params_joined(object, n = n, uncertainty = uncertainty,
+                              inner_class =  "params_surv"))
 }
 
 #' @export
 # #' @rdname create_params
 #' @keywords internal
-create_params.joined_flexsurvreg_list <- function(object, n = 1000, point_estimate = FALSE, ...){
-  return(create_params_joined(object, n, point_estimate, "params_surv_list"))
+create_params.joined_flexsurvreg_list <- function(object, n = 1000, uncertainty = c("normal", "none"),
+                                                  ...){
+  return(create_params_joined(object, n = n, uncertainty = uncertainty, 
+                              inner_class = "params_surv_list"))
 }
 

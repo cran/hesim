@@ -12,56 +12,52 @@
 \usage{
 create_params(object, ...)
 
-\method{create_params}{lm}(object, n = 1000, point_estimate = FALSE, ...)
+\method{create_params}{lm}(object, n = 1000, uncertainty = c("normal", "none"), ...)
 
-\method{create_params}{flexsurvreg}(object, n = 1000, point_estimate = FALSE, ...)
+\method{create_params}{flexsurvreg}(object, n = 1000, uncertainty = c("normal", "none"), ...)
 
-\method{create_params}{multinom}(object, n = 1000, point_estimate = FALSE, ...)
+\method{create_params}{multinom}(object, n = 1000, uncertainty = c("normal", "none"), ...)
 
-\method{create_params}{multinom_list}(object, n = 1000, point_estimate = FALSE, ...)
+\method{create_params}{multinom_list}(object, n = 1000, uncertainty = c("normal", "none"), ...)
 
-\method{create_params}{flexsurvreg_list}(object, n = 1000, point_estimate = FALSE, ...)
+\method{create_params}{flexsurvreg_list}(object, n = 1000, uncertainty = c("normal", "none"), ...)
 
 \method{create_params}{partsurvfit}(
   object,
   n = 1000,
-  point_estimate = FALSE,
-  bootstrap = TRUE,
-  max_errors = 0,
+  uncertainty = c("normal", "bootstrap", "none"),
   ...
 )
 }
 \arguments{
 \item{object}{A statistical model to randomly sample parameters from.}
 
-\item{...}{Further arguments passed to or from other methods. Currently unused.}
+\item{...}{Further arguments passed to or from other methods. Only used when
+\code{object} is of class \code{partsurvfit}, in which case the arguments are passed
+to \code{\link[=bootstrap.partsurvfit]{bootstrap.partsurvfit()}}.}
 
-\item{n}{Number of random observations to draw.}
+\item{n}{Number of random observations to draw. Not used if \code{uncertainty = "none"}.}
 
-\item{point_estimate}{If TRUE, then the point estimates are returned and
-and no samples are drawn.}
-
-\item{bootstrap}{If \code{bootstrap} is \code{FALSE} or not specified, then \code{n} parameter sets are
-drawn by sampling from a multivariate normal distribution. If \code{bootstrap} is \code{TRUE}, then
-parameters are bootstrapped using \link{bootstrap}.}
-
-\item{max_errors}{Equivalent to the \code{max_errors} argument in \link{bootstrap}.}
+\item{uncertainty}{Method determining how parameter uncertainty should be handled.
+If \code{"normal"}, then parameters are randomly drawn from their multivariate normal
+distribution. If \verb{"bootstrap}, then parameters are bootstrapped using \code{\link{bootstrap}}.
+If \verb{"none}, then only point estimates are returned.}
 }
 \value{
 An object prefixed by \code{params_}. Mapping between \code{create_params}
 and the classes of the returned objects are:
 \itemize{
-\item{\code{create_params.lm} ->}{ \link{params_lm}}
-\item{\code{create_params.multinom} ->}{ \link{params_mlogit}}
-\item{\code{create_params.multinom_list} ->}{ \link{params_mlogit_list}}
-\item{\code{create_params.flexsurvreg} ->}{ \link{params_surv}}
-\item{\code{create_params.flexsurvreg_list} ->}{ \link{params_surv_list}}
-\item{\code{create_params.partsurvfit} ->}{ \link{params_surv_list}}
+\item{\code{create_params.lm} ->}{ \code{\link{params_lm}}}
+\item{\code{create_params.multinom} ->}{ \code{\link{params_mlogit}}}
+\item{\code{create_params.multinom_list} ->}{ \code{\link{params_mlogit_list}}}
+\item{\code{create_params.flexsurvreg} ->}{ \code{\link{params_surv}}}
+\item{\code{create_params.flexsurvreg_list} ->}{ \code{\link{params_surv_list}}}
+\item{\code{create_params.partsurvfit} ->}{ \code{\link{params_surv_list}}}
 }
 }
 \description{
 \code{create_params} is a generic function for creating an object containing
-parameters from a fitted statistical model. If \code{point_estimate = FALSE},
+parameters from a fitted statistical model. If \code{uncertainty != "none"},
 then random samples from suitable probability distributions are returned.
 }
 \examples{

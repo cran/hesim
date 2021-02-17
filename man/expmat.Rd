@@ -11,10 +11,11 @@ expmat(x, t = 1, ...)
 
 \item{t}{An optional scaling factor for \code{x}.}
 
-\item{...}{Arguments to pass to \link[msm:MatrixExp]{msm::MatrixExp}.}
+\item{...}{Arguments to pass to \code{\link[msm:MatrixExp]{msm::MatrixExp()}}.}
 }
 \value{
-Returns an array of exponentiated matrices.
+Returns an array of exponentiated matrices. If \code{length(t) > 1}, then
+\code{length(t)} arrays are returned for each element in \code{x}.
 }
 \description{
 This is a wrapper around \code{\link[msm:MatrixExp]{msm::MatrixExp()}} that computes the exponential
@@ -25,9 +26,9 @@ This function is most useful when exponentiating transition intensity
 matrices to produce transition probability matrices. To create transition
 probability matrices for discrete time state transition models with annual
 cycles, set \code{t=1}. An array of matrices is returned which can be used
-to create the \code{value} element of a \link{tparams_transprobs} object. See
+to create the \code{value} element of a \code{\link{tparams_transprobs}} object. See
 \code{\link[=qmatrix]{qmatrix()}} for an example.
 }
 \seealso{
-\code{\link[=qmatrix]{qmatrix()}}
+\code{\link[=qmatrix.msm]{qmatrix.msm()}}, \code{\link[=qmatrix.data.table]{qmatrix.data.table()}}
 }

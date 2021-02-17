@@ -1,20 +1,28 @@
+## ---- include = FALSE---------------------------------------------------------
+ggplot2::theme_set(ggplot2::theme_bw())
+
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 library("data.table")
 library("hesim")
 set.seed(101)
-strategies_dt <- data.table(strategy_id = c(1, 2, 3))
-patients_dt <- data.table(patient_id = seq(1, 3),
-                          age = c(45, 50, 60),
-                          female = c(0, 0, 1))
-states_dt <- data.frame(state_id =  seq(1, 3),
-                        state_name = c("Progression free (1st line)",
-                                       "Progression free (2nd line)",
-                                       "Progressed (2nd line)"),
+strategies <- data.table(strategy_id = c(1, 2, 3),
+                         strategy_name = paste0("Strategy ", 1:3))
+patients <- data.table(patient_id = seq(1, 3),
+                       age = c(45, 50, 60),
+                       female = c(0, 0, 1))
+states <- data.frame(state_id =  seq(1, 3),
+                     state_name = c("Progression free (1st line)",
+                                    "Progression free (2nd line)",
+                                    "Progressed (2nd line)"),
                         stringsAsFactors = FALSE)
-hesim_dat <- hesim_data(strategies = strategies_dt,
-                        patients = patients_dt,
-                        states = states_dt)
+hesim_dat <- hesim_data(strategies = strategies,
+                        patients = patients,
+                        states = states)
 print(hesim_dat)
+
+## -----------------------------------------------------------------------------
+labs <- get_labels(hesim_dat)
+print(labs)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 library("flexsurv")
@@ -34,20 +42,18 @@ fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ age + fem
 psfit_wei <- flexsurvreg_list(fit1, fit2, fit3)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
-utility_tbl <- stateval_tbl(tbl = data.frame(state_id = states_dt$state_id,
+utility_tbl <- stateval_tbl(tbl = data.frame(state_id = states$state_id,
                                              min = psm4_exdata$utility$lower,
                                              max = psm4_exdata$utility$upper),
-                            dist = "unif",
-                            hesim_data = hesim_dat)
+                            dist = "unif")
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
-drugcost_tbl <- stateval_tbl(tbl = data.frame(strategy_id = strategies_dt$strategy_id,
+drugcost_tbl <- stateval_tbl(tbl = data.frame(strategy_id = strategies$strategy_id,
                                            est = psm4_exdata$costs$drugs$costs),
-                          dist = "fixed",
-                          hesim_data = hesim_dat)
+                          dist = "fixed")
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
-medcosts_fit <- stats::lm(costs ~ female + state_name, data = psm4_exdata$costs$medical)
+medcosts_fit <- lm(costs ~ female + state_name, data = psm4_exdata$costs$medical)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 n_samples <- 100
@@ -55,13 +61,13 @@ n_samples <- 100
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
 survmods <- create_PsmCurves(psfit_wei, input_data = surv_input_data, n = n_samples,
-                               bootstrap = TRUE, est_data = surv_est_data)
+                               uncertainty = "bootstrap", est_data = surv_est_data)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
-utilitymod <- create_StateVals(utility_tbl, n = n_samples)
+utilitymod <- create_StateVals(utility_tbl, n = n_samples, hesim_data = hesim_dat)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
-drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples)
+drugcostmod <- create_StateVals(drugcost_tbl, n = n_samples, hesim_data = hesim_dat)
 
 ## ---- warning = FALSE, message = FALSE----------------------------------------
 medcost_data <- expand(hesim_dat, by = c("strategies", "patients", "states"))
@@ -78,33 +84,24 @@ psm <- Psm$new(survival_models = survmods,
 # Simulate
 times <- seq(0, 10, by = .1)
 psm$sim_survival(t = times)
+head(psm$survival_)
 
 # Plot
-library("ggplot2")
-surv_means <- psm$survival_[, .(mean_surv = mean(survival)),
-                                      by = c("curve", "strategy_id", "patient_id", "t")]
-theme_set(theme_bw())
-p_data <- surv_means[strategy_id == 3 & patient_id == 2]
-p_data[, curve := factor(curve)]
-p_data[, mean_surv_min := c(rep(0, length(times)), p_data[curve !=3, mean_surv])]
-ggplot(p_data, aes(x = t, y = mean_surv, fill = curve)) + 
-      geom_line(aes(col = curve)) + 
-      geom_ribbon(aes(ymin = mean_surv_min, ymax = mean_surv), alpha = .65) +
-      xlab("Years") + ylab("Proportion surviving") +
-      scale_color_discrete(name = "Survival curve") +
-      guides(fill = FALSE) +
-      theme(legend.position = "bottom")
+labs$curve <- c("Curve 1" = 1, "Curve 2" = 2, "Curve 3" = 3)
+autoplot(psm$survival_, labels = labs,
+         ci = TRUE, ci_style = "ribbon")
 
 ## ----stateprobs, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 4----
 # Simulate
 psm$sim_stateprobs()
+head(psm$stateprobs_)
 
 # Plot
+library("ggplot2")
 stateprobs <- psm$stateprobs_[sample == 30 & patient_id == 1]
 stateprobs[, state := factor(state_id, 
                              levels = rev(unique(state_id)))]
-stateprobs[, strategy := factor(strategy_id, labels = c("Strategy 1", "Strategy 2", 
-                                                        "Strategy 3"))]
+stateprobs[, strategy := factor(strategy_id, labels = names(labs$strategy_id))]
 ggplot(stateprobs[strategy_id %in% c(1, 2)],
             aes(x = t, y = prob, fill = state, group = state)) + 
   geom_area(alpha = .65) + facet_wrap(~strategy) +

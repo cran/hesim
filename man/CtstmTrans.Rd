@@ -4,14 +4,16 @@
 \alias{CtstmTrans}
 \title{An \code{R6} base class for continuous time state transition models}
 \format{
-An \link[R6:R6Class]{R6::R6Class} object.
+An \code{\link[R6:R6Class]{R6::R6Class}} object.
 }
 \description{
-A non-exported base class for continuous time state transition models containing methods
-that can be used to summarize fitted multi-state models.
+Contains methods that can be used to summarize both individual- and cohort-level
+continuous time state transition models. That is, this class is relevant for
+both Markov and semi-Markov multi-state models and does not depend on the
+methodology used for prediction of state probabilities.
 }
 \seealso{
-\code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}, \link{IndivCtstmTrans}
+\code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}, \code{\link{IndivCtstmTrans}}
 }
 \section{Methods}{
 \subsection{Public methods}{
@@ -38,7 +40,7 @@ Predict the hazard functions for each health state transition.
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{data.table} with columns \code{trans} (the transition number),
+A \code{data.table} with columns \code{transition_id},
 \code{sample}, \code{strategy_id}, \code{grp_id}, \code{t}, and \code{hazard}.
 }
 }
@@ -59,8 +61,8 @@ Predict the cumulative hazard functions for each health state transition.
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A \code{data.table} with columns \code{trans},
-\code{sample}, \code{strategy_id}, \code{grp_id}, \code{t}, and \code{hazard}.
+A \code{data.table} with columns \code{transition_id},
+\code{sample}, \code{strategy_id}, \code{grp_id}, \code{t}, and \code{cumhazard}.
 }
 }
 \if{html}{\out{<hr>}}

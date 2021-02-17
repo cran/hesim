@@ -24,23 +24,20 @@ n_samples <- 2
 # Utility
 utility_tbl <- stateval_tbl(data.frame(state_id = states$state_id,
                                        est = c(0.90, 0.55)),
-                            dist = "fixed",
-                            hesim_data = hesim_dat)
+                            dist = "fixed")
 
 # Costs
 ## Medical
 medcost_tbl <- stateval_tbl(data.frame(state_id = states$state_id,
                                        mean = c(800, 1500),
                                        se = c(100, 150)),
-                            dist = "gamma",
-                            hesim_data = hesim_dat)
+                            dist = "gamma")
 
 
 ## Drugs
 drugcost_tbl <- stateval_tbl(tbl = data.frame(strategy_id = strategies$strategy_id,
                                            est = c(10000, 12500)),
-                            dist = "fixed",
-                            hesim_data = hesim_dat)
+                            dist = "fixed")
 
 # Clock-reset multi-state model
 ## Separate 
@@ -137,11 +134,11 @@ test_that("C_ctstm_indiv_stateprobs", {
 # Simulate economic model ------------------------------------------------------
 # Construct economic model
 ## Utility
-utilmod <- create_StateVals(utility_tbl, n = n_samples)
+utilmod <- create_StateVals(utility_tbl, n = n_samples, hesim_data = hesim_dat)
 
 ## Costs
-medcostsmod <- create_StateVals(medcost_tbl, n = n_samples)
-drugcostsmod <- create_StateVals(drugcost_tbl, n = n_samples) 
+medcostsmod <- create_StateVals(medcost_tbl, n = n_samples, hesim_data = hesim_dat)
+drugcostsmod <- create_StateVals(drugcost_tbl, n = n_samples, hesim_data = hesim_dat) 
 
 ## Transitions
 ### With transition specific survival models
@@ -153,20 +150,20 @@ tmat <- rbind(c(NA, 1, 2),
 test_that("IndivCtstmTrans - transition specific", {
   mstate_list <- create_IndivCtstmTrans(msfit_list, input_data = msfit_list_data, 
                                         trans_mat = tmat,
-                                        point_estimate = TRUE)  
+                                        uncertainty = "none")  
   
   # Hazard
   hesim_hazard <- mstate_list$hazard(3)
-  expect_equal(hesim_hazard[trans == 1][1]$hazard,
+  expect_equal(hesim_hazard[transition_id == 1][1]$hazard,
                summary(msfit_list[[1]], type = "hazard", t = 3, ci = FALSE)[[1]][1, "est"])
-  expect_equal(hesim_hazard[trans == 2][1]$hazard,
+  expect_equal(hesim_hazard[transition_id == 2][1]$hazard,
                summary(msfit_list[[2]], type = "hazard", t = 3, ci = FALSE)[[1]][1, "est"])
 
   # Cumulative hazard
   hesim_cumhazard <- mstate_list$cumhazard(5)
-  expect_equal(hesim_cumhazard[trans == 1][1]$cumhazard,
+  expect_equal(hesim_cumhazard[transition_id == 1][1]$cumhazard,
                summary(msfit_list[[1]], type = "cumhaz", t = 5)[[1]][1, "est"])
-  expect_equal(hesim_cumhazard[trans == 2][1]$cumhazard,
+  expect_equal(hesim_cumhazard[transition_id == 2][1]$cumhazard,
                summary(msfit_list[[2]], type = "cumhaz", t = 5)[[1]][1, "est"])
   
   # State probabilities only
@@ -186,7 +183,7 @@ test_that("IndivCtstmTrans - transition specific", {
   expect_error(create_IndivCtstmTrans(msfit_list, input_data = msfit_list_data, 
                                       trans_mat = tmat,
                                       death_state = nrow(tmat),
-                                      point_estimate = TRUE),
+                                      uncertainty = "none"),
                NA)
   
   # Errors
@@ -196,7 +193,7 @@ test_that("IndivCtstmTrans - transition specific", {
   expect_error(create_IndivCtstmTrans(msfit_list, input_data = msfit_list_data, 
                                       trans_mat = tmat,
                                       death_state = nrow(tmat) + 1,
-                                      point_estimate = TRUE))
+                                      uncertainty = "none"))
   
   mstate_list2 <- mstate_list$clone()
   mstate_list2$trans_mat <- matrix(1)
@@ -215,19 +212,19 @@ msfit_data <- expand(hesim_dat, by = c("strategies", "patients", "transitions"))
 test_that("IndivCtstmTrans - joint", {
   mstate <- create_IndivCtstmTrans(msfit, input_data = msfit_data, 
                                    trans_mat = tmat_ebmt4,
-                                   point_estimate = TRUE)    
+                                   uncertainty = "none")    
   # hazard
   hesim_hazard <- mstate$hazard(3)
-  expect_equal(hesim_hazard[trans == 1][1]$hazard,
+  expect_equal(hesim_hazard[transition_id == 1][1]$hazard,
                summary(msfit, type = "hazard", t = 3, ci = FALSE)[[1]][1, "est"])
-  expect_equal(hesim_hazard[trans == 4][1]$hazard,
+  expect_equal(hesim_hazard[transition_id == 4][1]$hazard,
                summary(msfit, type = "hazard", t = 3, ci = FALSE)[[4]][1, "est"])
 
   # Cumulative hazard
   hesim_cumhazard <- mstate$cumhazard(3)
-  expect_equal(hesim_cumhazard[trans == 1][1]$cumhazard,
+  expect_equal(hesim_cumhazard[transition_id == 1][1]$cumhazard,
                summary(msfit, type = "cumhaz", t = 3, ci = FALSE)[[1]][1, "est"])
-  expect_equal(hesim_cumhazard[trans == 4][1]$cumhazard,
+  expect_equal(hesim_cumhazard[transition_id == 4][1]$cumhazard,
                summary(msfit, type = "cumhaz", t = 3, ci = FALSE)[[4]][1, "est"])
   
   # Simulate state probabilities
@@ -239,7 +236,7 @@ test_that("IndivCtstmTrans - joint", {
 test_that("Simulate disease progression with transition specific models", {
   mstate_list <- create_IndivCtstmTrans(msfit_list, input_data = msfit_list_data, 
                                          trans_mat = tmat,
-                                         point_estimate = TRUE)
+                                         uncertainty = "none")
   ictstm <- IndivCtstm$new(trans_model = mstate_list,
                            utility_model = utilmod)
   
@@ -308,6 +305,44 @@ test_that("Simulate costs and QALYs", {
   ##### Cannot repeat discount rates
   expect_error(ictstm$sim_qalys(dr = c(.03, .03))$qalys)
   
+  ##### Incorrect number of PSA samples
+  ictstm2 <- ictstm$clone(deep = TRUE)
+  ictstm2$utility_model$params$n_samples <- -1
+  expect_error(
+    ictstm2$sim_qalys(),
+    paste0("The number of samples in each 'StateVals' model must equal the ",
+           "number of samples in the 'disprog' object, which is 2.")
+  )
+  
+  ##### Incorrect number of strategies
+  ictstm2 <- ictstm$clone(deep = TRUE)
+  ictstm2$utility_model$params$n_strategies <- -1
+  expect_error(
+    ictstm2$sim_qalys(),
+    paste0("The number of strategies in each 'StateVals' model must equal the ",
+           "number of strategies in the 'disprog' object, which is 2.")
+  )
+  
+  ##### Incorrect number of patients
+  ictstm2 <- ictstm$clone(deep = TRUE)
+  ictstm2$utility_model$params$n_patients <- -1
+  expect_error(
+    ictstm2$sim_qalys(),
+    paste0("The number of patients in each 'StateVals' model must equal the ",
+           "number of patients in the 'disprog' object, which is 3.")
+  )
+  
+  ##### Incorrect number of health states
+  ictstm2 <- ictstm$clone(deep = TRUE)
+  ictstm2$utility_model$params$n_states <- -1
+  expect_error(
+    ictstm2$sim_qalys(),
+    paste0("The number of states in each 'StateVals' model must be one less ",
+           "(since state values are not applied to the death state) than ",
+           "the number of states in the 'disprog' object, which is 3."),
+    fixed = TRUE
+  )
+  
   #### No errors
   expect_error(ictstm$sim_qalys(dr = .03)$qalys_, NA)
   
@@ -340,8 +375,8 @@ test_that("Simulate costs and QALYs", {
   utility_tbl2 <- data.table(state_id = rep(states$state_id, 2),
                              time_start = c(0, 0, t2, t2),
                              est = c(.90, .55, .70, .35))
-  utility_tbl2 <- stateval_tbl(utility_tbl2, dist = "fixed", hesim_data = hesim_dat)
-  utilmod2 <- create_StateVals(utility_tbl2, n = n_samples)
+  utility_tbl2 <- stateval_tbl(utility_tbl2, dist = "fixed")
+  utilmod2 <- create_StateVals(utility_tbl2, n = n_samples, hesim_data = hesim_dat)
   ictstm2 <- ictstm$clone()
   ictstm2$utility_model <- utilmod2
   ictstm2$sim_disease()
@@ -400,9 +435,9 @@ test_that("Simulate costs and QALYs", {
   drugcost_tbl_tv <- stateval_tbl(tbl = data.frame(strategy_id = rep(strategies$strategy_id, each = 2),
                                                  time_start = c(0, 1.2, 0, 1.2),
                                                   est = c(10000, 500, 12500, 250)),
-                                  dist = "fixed",
-                                  hesim_data = hesim_dat)
-  drugcostsmod_tv <- create_StateVals(drugcost_tbl_tv, n = n_samples, time_reset = TRUE) 
+                                  dist = "fixed")
+  drugcostsmod_tv <- create_StateVals(drugcost_tbl_tv, n = n_samples, time_reset = TRUE,
+                                      hesim_data = hesim_dat) 
   ictstm2$cost_models <- list(medical = medcostsmod, 
                               drugs = drugcostsmod_tv)
   ictstm2$sim_costs(dr = 0, by_patient = TRUE)
@@ -436,10 +471,10 @@ test_that("Simulate costs and QALYs", {
                                                                   0, 1.2, 4),
                                                    est = c(10000, 500, 0, 
                                                            12500, 250, 0)),
-                                  dist = "fixed",
-                                  hesim_data = hesim_dat)
+                                  dist = "fixed")
   drugcostsmod_tv2 <- create_StateVals(drugcost_tbl_tv2, n = n_samples, 
-                                       time_reset = FALSE, method = "starting") 
+                                       time_reset = FALSE, method = "starting",
+                                       hesim_data = hesim_dat) 
   ictstm2$cost_models$drugs <- drugcostsmod_tv2
   ictstm2$sim_costs(dr = .03, by_patient = TRUE)
   
@@ -531,7 +566,7 @@ test_that("IndivCtstm - joint", {
   
   # Mixture
   params <- create_params(msfit, n = 2)
-  msfit_data <- cbind(msfit_data, model.matrix(~factor(trans), msfit_data), shape = 1, scale = 1)
+  msfit_data <- cbind(msfit_data, model.matrix(~factor(trans), msfit_data))
   mstate_mix <- create_IndivCtstmTrans(params, input_data = msfit_data, 
                                        trans_mat = tmat_ebmt4,
                                        clock = "mix", reset_states = 1:nrow(tmat_ebmt4))  

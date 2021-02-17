@@ -68,10 +68,11 @@ patients <- data.table(
 )
 
 # States
-states <- data.table(
+states <- data.table( # Non-death health states
   state_id = 1:4,
-  state_name = c("PrimaryTHR", "SuccessP", "Revision", "SuccessR")
-) # Non-death health states
+  state_name = c("Primary THR", "Sucessful primary", "Revision THR", 
+                 "Successful revision")
+) 
 n_states <- nrow(states)
 
 # "hesim data"
@@ -81,19 +82,24 @@ hesim_dat <- hesim_data(strategies = strategies,
 print(hesim_dat)
 ```
 
+`get_labels()` is used to obtain nice labels for plots and summary tables.
+
+```{r}
+labs <- get_labels(hesim_dat)
+print(labs)
+```
+
 # Parameters
 ## Transitions
 The possible transitions to and from each state are summarized with a matrix in an individual patient simulation.
 
 ```{r}
-state_names <- c("Primary THR", "Sucessful primary", "Revision THR", 
-                 "Successful revision", "Death")
 tmat <- rbind(c(NA, 1, NA, NA, 2),
               c(NA, NA, 3, NA, 4),
               c(NA, NA, NA, 5, 6),
               c(NA, NA, 7, NA, 8),
               c(NA, NA, NA, NA, NA))
-colnames(tmat) <- rownames(tmat) <- state_names
+colnames(tmat) <- rownames(tmat) <- names(labs$state_id)
 tmat %>% 
   kable() %>%
   kable_styling()
@@ -294,8 +300,7 @@ utility_tbl <- stateval_tbl(
   data.table(state_id = states$state_id,
              mean = c(0, .85, .3, .75),
              se = c(0, .03, .03, .04)),
-  dist = "beta",
-  hesim_data = hesim_dat
+  dist = "beta"
 )
 head(utility_tbl)
 ```
@@ -310,8 +315,7 @@ drugcost_tbl <- stateval_tbl(
              state_id = rep(states$state_id, times = n_strategies),
              est = c(394, 0, 0, 0,
                      579, 0, 0, 0)),
-  dist = "fixed",
-  hesim_data = hesim_dat
+  dist = "fixed"
 )
 
 medcost_tbl <- stateval_tbl(
@@ -319,7 +323,6 @@ medcost_tbl <- stateval_tbl(
              mean = c(0, 0, 5294, 0),
              se = c(0, 0, 1487, 0)),
   dist = "gamma",
-  hesim_data = hesim_dat
 )
 ```
 
@@ -359,12 +362,14 @@ Models based on predicted means (see `tparams_mean()`) can be created directly f
 
 ```{r}
 # Utility
-utilitymod <- create_StateVals(utility_tbl, n = transmod_coef_def$n)
+utilitymod <- create_StateVals(utility_tbl, n = transmod_coef_def$n, 
+                               hesim_data = hesim_dat)
 
 # Costs
 drugcostmod <- create_StateVals(drugcost_tbl, n = transmod_coef_def$n,
-                                method = "starting")
-medcostmod <- create_StateVals(medcost_tbl, n = transmod_coef_def$n)
+                                method = "starting", hesim_data = hesim_dat)
+medcostmod <- create_StateVals(medcost_tbl, n = transmod_coef_def$n,
+                               hesim_data = hesim_dat)
 costmods <- list(Drug = drugcostmod,
                  Medical = medcostmod)
 ```
@@ -419,16 +424,12 @@ econmod$sim_qalys(dr = .015)
 econmod$sim_costs(dr = .06)
 ```
 
-Mean costs and QALYs for each PSA sample are computed with the `$summarize()` method. Costs are very similar to the cohort model. Conversely, QALYs are slightly higher in the IPS since we assumed that patients remained in the primary THR (with utility = 0) state for longer than in the cohort model. This difference not only suggests that  results may be sensitive to this assumption, but also shows that the flexibility of individual-level models may make them more realistic than cohort models. 
+Mean costs and QALYs for each PSA sample are computed with the `$summarize()` method and summary results are produced with `summary.ce()`. Costs are very similar to the cohort model. Conversely, QALYs are slightly higher in the IPS since we assumed that patients remained in the primary THR (with utility = 0) state for longer than in the cohort model. This difference not only suggests that results may be sensitive to this assumption, but also shows that the flexibility of individual-level models may make them more realistic than cohort models. 
 
 ```{r}
 ce_sim <- econmod$summarize()
-ce_sim$qalys[, .(mean = mean(qalys)),
-                by = c("strategy_id")]
-
-ce_sim$costs[category == "total",
-            .(mean = mean(costs)),
-              by = c("strategy_id")]
+summary(ce_sim, labels = labs) %>%
+  format()
 ```
 
 # Decision analysis
@@ -437,7 +438,8 @@ Since we performed a PSA, decision uncertainty could be formally quantified. Sin
 ```{r}
 cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0.015, dr_costs = .06,
                      k = seq(0, 25000, 500))
-icer_tbl(cea_pw_out)
+icer(cea_pw_out, labels = labs) %>%
+  format(digits_qalys = 3)
 ```
 
 ```{r, eval = FALSE, echo = FALSE}

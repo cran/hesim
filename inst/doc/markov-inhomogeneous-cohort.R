@@ -20,9 +20,21 @@ patients <- data.table(patient_id = 1:10,
                        sex = rep(c("Female", "Male"), each = length(ages)),
                        age = rep(ages, times = 2),
                        patient_wt = weights)
+
+# Health states
+states <- data.table(state_id = 1:4,
+                     state_name = c("Primary THR", "Successful primary",
+                                    "Revision THR", "Successful revision"))
+
+# Combined data
 hesim_dat <- hesim_data(strategies = strategies,
-                        patients = patients)
+                        patients = patients,
+                        states = states)
 print(hesim_dat)
+
+## -----------------------------------------------------------------------------
+labs <- get_labels(hesim_dat)
+print(labs)
 
 ## ---- echo = FALSE------------------------------------------------------------
 library("kableExtra")
@@ -34,13 +46,7 @@ tpmat <- matrix(
     0, 0, 0, 0, 1),
   nrow = 5, ncol = 5, byrow = TRUE
 )
-colnames(tpmat) <- rownames(tpmat) <- c(
-  "Primary THR", 
-  "Successful primary",
-  "Revision THR",
-  "Successful revision",
-  "Death"
-)
+colnames(tpmat) <- rownames(tpmat) <- names(labs$state_id)
 knitr::kable(tpmat) %>%
   kable_styling()
 
@@ -212,14 +218,13 @@ stateprob_summary <- econmod$stateprobs_[patient_id == 2,
                                             count_lower = 1000 * quantile(prob, .025),
                                             count_upper = 1000 * quantile(prob, .975)),
                                           by = c("strategy_id", "patient_id", "state_id", "t")]
-stateprob_summary[, strategy_name := factor(strategy_id,
-                                            labels = strategies$strategy_name)]
+set_labels(stateprob_summary, labels = labs, 
+           new_names = c("strategy_name", "state_name"))
 ggplot(stateprob_summary, aes(x = t, y = count_mean)) +
   geom_line(aes(col = strategy_name)) +
   geom_ribbon(aes(x = t, ymin = count_lower, ymax = count_upper,
                   fill = strategy_name), alpha = .3) +
-  facet_wrap(~factor(state_id, labels = colnames(tpmat)),
-             scale = "free_y") +
+  facet_wrap(~state_name, scale = "free_y") +
   xlab("Year") + ylab("Count") +
   scale_fill_discrete("Strategy") + scale_color_discrete("Strategy")
 
@@ -233,21 +238,19 @@ wtp <- seq(0, 25000, 500)
 cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0.015, dr_costs = .06,
                      k = wtp)
 
-ce_sim$qalys[grp_id == 2, 
-              .(mean = mean(qalys)),
-                by = c("strategy_id", "grp_id")]
-ce_sim$costs[grp_id == 2 & category == "total", 
-            .(mean = mean(costs)),
-              by = c("strategy_id", "grp_id")]
+summary(ce_sim, labels = labs)[grp == 2] %>%
+  format()
 
 ## ----icerSubgroup-------------------------------------------------------------
-icer_tbl(cea_pw_out, output = "data.table")
+icer(cea_pw_out) %>%
+  format(pivot_from = "outcome")
 
 ## ----icerOverall--------------------------------------------------------------
 ce_sim <- econmod$summarize(by_grp = FALSE)
 cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = .015, dr_costs = .06,
                      k = wtp)
-icer_tbl(cea_pw_out)
+icer(cea_pw_out, labels = labs) %>%
+  format(digits_qalys = 3)
 
 ## ----echo = FALSE-------------------------------------------------------------
 ptm <- proc.time()
@@ -339,12 +342,8 @@ econmod$sim_qalys(dr = .015, integrate_method = "riemann_right")
 econmod$sim_costs(dr = .06, integrate_method = "riemann_right")
 
 ce_sim <- econmod$summarize(by_grp = TRUE)
-ce_sim$qalys[grp_id == 2, 
-              .(mean = mean(qalys)),
-                by = c("strategy_id", "grp_id")]
-ce_sim$costs[grp_id == 2 & category == "total", 
-            .(mean = mean(costs)),
-              by = c("strategy_id", "grp_id")]
+summary(ce_sim, labels = labs)[grp == 2] %>%
+  format()
 
 ## ---- hide = TRUE-------------------------------------------------------------
 data.table(

@@ -11,32 +11,41 @@ Simulate outcomes from an N-state partitioned survival model.
 }
 \examples{
 library("flexsurv")
+library("ggplot2")
+theme_set(theme_bw())
 
 # Simulation data
-strategies <- data.frame(strategy_id = c(1, 2, 3))
+strategies <- data.frame(strategy_id = c(1, 2, 3), 
+                         strategy_name = paste0("Strategy ", 1:3))
 patients <- data.frame(patient_id = seq(1, 3),
                        age = c(45, 50, 60),
                        female = c(0, 0, 1))
 states <- data.frame(state_id =  seq(1, 3),
-                     state_name = paste0("state", seq(1, 3)))
+                     state_name = paste0("State ", seq(1, 3)))
 hesim_dat <- hesim_data(strategies = strategies,
                         patients = patients,
                         states = states)
-n_samples <- 3
+labs <- c(
+  get_labels(hesim_dat),
+  list(curve = c("Endpoint 1" = 1,
+                "Endpoint 2" = 2,
+                 "Endpoint 3" = 3))
+)
+n_samples <- 2
 
 # Survival models
 surv_est_data <- psm4_exdata$survival
-fit1 <- flexsurv::flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ age,
+fit1 <- flexsurv::flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ factor(strategy_id),
                               data = surv_est_data, dist = "exp")
-fit2 <- flexsurv::flexsurvreg(Surv(endpoint2_time, endpoint2_status) ~ age,
+fit2 <- flexsurv::flexsurvreg(Surv(endpoint2_time, endpoint2_status) ~ factor(strategy_id),
                               data = surv_est_data, dist = "exp")
-fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ age,
+fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ factor(strategy_id),
                               data = surv_est_data, dist = "exp")
 fits <- flexsurvreg_list(fit1, fit2, fit3)
 
 surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
 psm_curves <- create_PsmCurves(fits, input_data = surv_input_data,
-                               bootstrap = TRUE, est_data = surv_est_data, 
+                               uncertainty = "bootstrap", est_data = surv_est_data, 
                                n = n_samples)
 
 # Cost model(s)
@@ -51,35 +60,37 @@ psm_costs_medical <- create_StateVals(fit_costs_medical,
 utility_tbl <- stateval_tbl(tbl = data.frame(state_id = states$state_id,
                                              min = psm4_exdata$utility$lower,
                                              max = psm4_exdata$utility$upper),
-                            dist = "unif",
-                            hesim_data = hesim_dat)
-psm_utility <- create_StateVals(utility_tbl, n = n_samples)
+                            dist = "unif")
+psm_utility <- create_StateVals(utility_tbl, n = n_samples,
+                                hesim_data = hesim_dat)
 
 # Partitioned survival decision model
 psm <- Psm$new(survival_models = psm_curves,
                utility_model = psm_utility,
                cost_models = list(medical = psm_costs_medical))
-psm$sim_survival(t = seq(0, 5, .05))
+psm$sim_survival(t = seq(0, 5, 1/12))
+autoplot(psm$survival_, labels = labs, ci = FALSE, ci_style = "ribbon")
 psm$sim_stateprobs()
+autoplot(psm$stateprobs_, labels = labs)
 psm$sim_costs(dr = .03)
 head(psm$costs_)
 head(psm$sim_qalys(dr = .03)$qalys_)
 
 }
 \seealso{
-\link{PsmCurves}, \code{\link[=create_PsmCurves]{create_PsmCurves()}}
+\code{\link{PsmCurves}}, \code{\link[=create_PsmCurves]{create_PsmCurves()}}
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{survival_models}}{The survival models used to predict survival curves. Must be
-an object of class \link{PsmCurves}.}
+an object of class \code{\link{PsmCurves}}.}
 
 \item{\code{utility_model}}{The model for health state utility. Must be an object of
-class \link{StateVals}.}
+class \code{\link{StateVals}}.}
 
 \item{\code{cost_models}}{The models used to predict costs by health state.
-Must be a list of objects of class \link{StateVals}, where each element of the
+Must be a list of objects of class \code{\link{StateVals}}, where each element of the
 list represents a different cost category.}
 
 \item{\code{n_states}}{Number of states in the partitioned survival model.}
@@ -87,7 +98,7 @@ list represents a different cost category.}
 \item{\code{t_}}{A numeric vector of times at which survival curves were predicted. Determined
 by the argument \code{t} in \verb{$sim_curves()}.}
 
-\item{\code{survival_}}{Survival curves simulated using \code{sim_curves()}.}
+\item{\code{survival_}}{An object of class \link{survival} simulated using \code{sim_survival()}.}
 
 \item{\code{stateprobs_}}{An object of class \link{stateprobs} simulated using \verb{$sim_stateprobs()}.}
 
@@ -141,7 +152,7 @@ A new \code{Psm} object.
 \if{html}{\out{<a id="method-sim_survival"></a>}}
 \if{latex}{\out{\hypertarget{method-sim_survival}{}}}
 \subsection{Method \code{sim_survival()}}{
-Simulate survival curves as a function of time using \code{PsmCurves$sim_survival()}.
+Simulate survival curves as a function of time using \code{PsmCurves$survival()}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Psm$sim_survival(t)}\if{html}{\out{</div>}}
 }
@@ -154,8 +165,8 @@ Simulate survival curves as a function of time using \code{PsmCurves$sim_surviva
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-An instance of \code{self} with simulated output from \code{PsmCurves$sim_survival()}
-stored in \code{stateprobs_}.
+An instance of \code{self} with simulated output from \code{PsmCurves$survival()}
+stored in \code{survival_}.
 }
 }
 \if{html}{\out{<hr>}}
@@ -237,9 +248,17 @@ in \code{costs_}.
 Summarize costs and QALYs so that cost-effectiveness analysis can be performed.
 See \code{\link[=summarize_ce]{summarize_ce()}}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Psm$summarize()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Psm$summarize(by_grp = FALSE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{by_grp}}{If \code{TRUE}, then costs and QALYs are computed by subgroup. If
+\code{FALSE}, then costs and QALYs are aggregated across all patients (and subgroups).}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}

@@ -39,10 +39,10 @@ create_lines_dt <- function(strategy_list, strategy_ids = NULL){
 #' Create a data table of health state transitions
 #' 
 #' Create a data table of health state transitions from a transition matrix describing 
-#' the states and transitions in a multi-state model suitable for use with \link{hesim_data}. 
-#' @param trans_mat A transition matrix in the format from the \link[mstate]{mstate} package. 
-#' See \link{IndivCtstmTrans}.
-#' @return Returns a \code{\link{data.table}} in tidy format with three columns
+#' the states and transitions in a multi-state model suitable for use with [`hesim_data`]. 
+#' @param trans_mat A transition matrix in the format from the [`mstate`][mstate::mstate] package. 
+#' See [`IndivCtstmTrans`].
+#' @return Returns a [`data.table`] in tidy format with three columns:
 #' \describe{
 #' \item{transition_id}{Health state transition ID.}
 #' \item{from}{The starting health state.}
@@ -78,23 +78,24 @@ create_trans_dt <- function(trans_mat){
   return(x)
 }
 
-#' Data for health-economic simulation modeling
+#' Data for health economic simulation modeling
 #' 
-#' A list of tables required for health-economic simulation modeling.
+#' A list of tables required for health economic simulation modeling.
 #' Each table must either be a `data.frame` or `data.table`. All ID variables within 
 #' each table must be numeric vectors of integers. 
-#' @param strategies A table of treatment strategies. 
-#' Must contain the column `strategy_id` denoting a unique strategy. Other columns are variables
-#'  describing the characteristics of a treatment strategy. 
-#' @param patients A table of patients. 
-#' Must contain the column `patient_id` denoting a unique patient. The 
-#' number of rows should be equal to the number of patients in the model. The table
-#' may also include columns for `grp_id` for subgroups and `patient_wt` specifying
-#' the weight to apply to each patient (within a subgroup). If `grp_id` is
-#' `NULL`, then it is assumed that there is only 1 subgroup. If `patient_wt` is
-#' `NULL`. then each patient is given the same weight. Weights
-#' within subgroups are normalized to sum to one.
-#' Other columns are variables describing the characteristics of a patient.
+#' @param strategies A table of treatment strategies. Must contain the column 
+#' `strategy_id` denoting a unique strategy. Other columns are variables
+#' describing the characteristics of a treatment strategy. 
+#' @param patients A table of patients. Must contain the column `patient_id` denoting 
+#' a unique patient. The number of rows should be equal to the number of patients 
+#' in the model. The table may also include columns for `grp_id` for subgroups and 
+#' `patient_wt` specifying the weight to apply to each patient (within a subgroup). 
+#' If `grp_id` is `NULL`, then it is assumed that there is only one subgroup. If
+#' `patient_wt` is `NULL`. then each patient is given the same weight. Weights 
+#' cannot be used in individual-level models because each patient should be
+#' weighted equally; that is, weights can only be specified in cohort models.
+#' Weights within subgroups are normalized to sum to one. Other columns are 
+#' variables describing the characteristics of a patient.
 #' @param states A table of health states. Must contain the column
 #' `state_id`, which denotes a unique health state. The number of rows should
 #' be equal to the number of health states in the model. Other columns can describe the
@@ -105,16 +106,16 @@ create_trans_dt <- function(trans_mat){
 #' transitioned to.
 #' @return Returns an object of class `hesim_data`, which is a list of data tables for
 #' health economic simulation modeling.
-#' @seealso [expand.hesim_data()]
+#' @seealso [`expand.hesim_data()`], [`get_labels()`]
 #' @examples 
 #' strategies <- data.frame(strategy_id = c(1, 2))
 #' patients <- data.frame(patient_id = seq(1, 3), age = c(65, 50, 75),
 #'                        gender = c("Female", "Female", "Male"))
 #' states <- data.frame(state_id =  seq(1, 3),
-#'                         state_var = c(2, 1, 9))
+#'                      state_var = c(2, 1, 9))
 #' hesim_dat <- hesim_data(strategies = strategies,
-#'                          patients = patients,
-#'                          states = states)
+#'                         patients = patients,
+#'                         states = states)
 #' @export
 hesim_data <- function(strategies, patients, states = NULL,
                        transitions = NULL){
@@ -449,47 +450,258 @@ new_id_attributes <- function(strategy_id, n_strategies,
 
 #' @rdname check
 check.id_attributes <- function(object){
-  id_vars <- c("strategy_id", "patient_id", "state_id", "transition_id",
-               "time_id")
-  id_vars_n <- c("n_strategies", "n_patients", "n_states", "n_transitions",
-                 "n_times")
+  # ID variables to check
+  id_vars <- c("sample", "strategy_id", "patient_id", "state_id", 
+               "transition_id", "time_id")
+  id_vars_n <- c("n_samples", "n_strategies", "n_patients", "n_states",
+                 "n_transitions", "n_times")
+  keep <- which(id_vars %in% names(object))
+  id_vars <- id_vars[keep]
+  id_vars_n <- id_vars_n[keep]
+  
+  # Helper function
+  str_list <- function(v) {
+    if (length(v) == 1) {
+      return(v)
+    } else if (length(v) == 2) {
+      return(paste0(v[1], " and ", v[2]))
+    } else{
+      return(paste0(paste(v[1:(length(v) - 1)], collapse = ", "),
+            ", and ", v[length(v)]))
+    }
+  }
+  
+  # Check that id variables have correct size
   for (i in 1:length(id_vars)){
-    if (!is.null(object[[id_vars[i]]])){
-      # Check that n_strategies, n_patients, ..., is correct
-      if(length(unique(object[[id_vars[i]]])) != object[id_vars_n[i]]){
-        msg <- paste0("The number of unique observations in '", id_vars[i], 
-                      "' does not equal '", id_vars_n[i], "'.")
-        stop(msg, call. = FALSE)
-      } 
-    } # end loop of id_vars
+    if(length(unique(object[[id_vars[i]]])) != object[id_vars_n[i]]){
+      msg <- paste0("The number of unique observations in '", id_vars[i], 
+                    "' does not equal '", id_vars_n[i], "'.")
+      stop(msg, call. = FALSE)
+    } 
+  }
+  
+  # Check that each ID vector is same length
+  actual_N <- sapply(object[id_vars], length)
+  expected_N <- prod(unlist(object[id_vars_n]))
+  if(sum(actual_N != expected_N) > 0) {
+    stop(paste0("The length of the ID variables is not consistent with the number ",
+                "of unique values of each ID variable."), call. = FALSE)
   }
   
   # Check if id variables are sorted properly 
   indices_df <- data.table(do.call("cbind", object[id_vars]))
   sorted_seq <- seq_len(nrow(indices_df))
   indices_df[, "row_num" := sorted_seq]
-  by <- id_vars[sapply(object[id_vars], function(x) !is.null(x))]
-  sort_hesim_data(indices_df, sorted_by = hesim_data_sorted_by(by))
+  setorderv(indices_df, id_vars)
   if(!all(indices_df$row_num == sorted_seq)){
     msg <- paste0("The ID variables are not sorted correctly. The sort priority of the ",
-                  "ID variables must be as follows: 'strategy_id', 'patient_id' ",
-                  "the health-related ID variable ('state_id' or 'transition_id') ",
-                  "and 'time_id'.")
+                  "ID variables must be as follows: ", str_list(id_vars), ".")
     stop(msg, call. = FALSE)
   }
   
   # Check if the number of unique observations is correct within groups
   indices_df[, "row_num" := NULL]
   for (i in 2:ncol(indices_df)){
-    dt_by <- colnames(indices_df)[i - 1]
+    dt_by <- colnames(indices_df)[1:(i - 1)]
     col <- colnames(indices_df)[i]
     len <- indices_df[, list(len = length(unique(get(col)))), 
-                      by = c("strategy_id", dt_by)]$len
+                      by = dt_by]$len
     user_n <- object[[id_vars_n[i]]]
     if (!all(unique(len) == user_n)){
-      msg <- paste0("The number of unique '", col, "' observations within each value",
-                    " of '", dt_by, " ' must equal '", id_vars_n[i], "'.")
+      msg <- paste0("The number of unique ", col, " observations within each ",
+                     str_list(dt_by), " group must equal ", id_vars_n[i], ".")
       stop(msg, call. = FALSE)
     }
   }
+}
+
+# Get the object containing ID attributes
+get_id_object <- function(x){
+  if (is.null(x$input_data)){
+    return(x$params)
+  } else{
+    return(x$input_data)
+  }
+}
+
+# Get sizes from an ID object
+get_size <- function(x) {
+  y <- get_id_object(x)
+  return(c(
+    n_samples = get_n_samples(x$params),
+    n_strategies = y$n_strategies,
+    n_patients = y$n_patients,
+    n_states = y$n_states,
+    n_transitions = y$n_transitions,
+    n_times = y$n_times
+  ))
+}
+
+# Labels -----------------------------------------------------------------------
+#' Set value labels
+#' 
+#' Update existing variables or create new ones that replace existing values
+#' with more informative labels as in [`factor()`]. All modifications are performed 
+#' by reference (see [`data.table::set()`] for more information about assignment by 
+#' reference).
+#' @param x A `data.table`.
+#' @param labels A list of named vectors containing the values and labels of 
+#' variables. The elements of each vector are the values of a variable and the 
+#' names are the labels. The names of the list are the names of the variables.
+#' See the output returned by [`get_labels()`] for an example.
+#' @param new_names A character vector of the same length as `labels` where
+#' each element denotes the name of a new variable to create for the
+#' corresponding element in `labels`. If `NULL`, then the variables in `labels`
+#' are modified and no new variables are created; otherwise, the existing variables
+#' are not modified and new variables are created instead.
+#' @param as_factor If `TRUE` factor variables are created; otherwise character
+#' vectors are created. 
+#' @return `x` is modified by reference and returned invisibly.  
+#' @examples 
+#' library("data.table")
+#' labs <- list("strategy_id" = c("s1" = 1, 
+#'                                "s2" = 2),
+#'             "grp_id" = c("g1" = 1, 
+#'                          "g2" = 2))
+#' d1 <- data.table(strategy_id = 1:2, grp_id = 1:2)
+#' d2 <- copy(d1); d3 <- copy(d2)
+#' set_labels(d2, labels = labs)
+#' set_labels(d3, labels = labs, new_names = c("strategy_name", "grp_name"))
+#' d1
+#' d2
+#' d3
+#' @seealso [`get_labels()`]
+#' @export
+set_labels <- function(x, labels, new_names = NULL, as_factor = TRUE) {
+  
+  labels <- labels[names(labels) %in% colnames(x)]
+  
+  if (length(labels) > 0) {
+    for (i in 1:length(labels)) {
+      old_name <- names(labels)[i]
+      if (!is.null(new_names)) new_name <- new_names[i] else new_name <- old_name
+      if (is.null(names(labels[[i]]))) {
+        stop("Each element of 'labels' must be a named vector.")
+      }
+      x[,  (new_name) := factor(x[[old_name]], 
+                                levels = labels[[i]],
+                                labels = names(labels[[i]]))]
+      if (!as_factor) x[, (new_name) := as.character(x[[new_name]])]
+    }
+  }
+  invisible(x[])
+}
+
+#' Get value labels
+#' 
+#' Get value labels for the ID variables in a `hesim_data` object and create a list
+#' of named vectors that can be passed to formatting and plotting functions. This
+#' lets users create nice labels for treatment strategies, subgroups, health states,
+#' and/or transitions when presenting results. 
+#' @param object An object of class `hesim_data` created with [`hesim_data()`].
+#' @param strategy The name of the column in the `strategy` element of `object`
+#' containing labels for `strategy_id`.
+#' @param grp The name of the column in the `patient` element of `object`
+#' containing labels for `grp_id`.
+#' @param state The name of the column in the `state` element of `object`
+#' containing labels for `state_id`.
+#' @param transition The name of the column in the `transition` element of `object`
+#' containing labels for `transition_id`.
+#' @param death_label The label to use for the death health state. By default a
+#' label named "Death" will be concatenated to the labels for the non-death health
+#' states. The death state can be omitted from labels for the health states by setting
+#' `death_label = NULL`.
+#' @return A list of named vectors containing the values and labels of 
+#' variables. The elements of each vector are the values of a variable and the names 
+#' are the labels. The names of the list are the names of the ID variables. 
+#' @examples
+#' library("data.table")
+#' strategies <- data.table(
+#'   strategy_id = c(1, 2),
+#'   strategy_name = c("Strategy 1", "Strategy 2")
+#' )
+#' patients <- data.table(
+#'   patient_id = seq(1, 4),
+#'   age = c(50, 55, 60, 65),
+#'   grp_id = c(1, 1, 2, 2),
+#'   grp_name = rep(c("Age 50-59", "Age 60-69"), each = 2)
+#' )
+#' states <- data.table(
+#'   state_id =  seq(1, 2),
+#'   state_name = c("State 1", "State 2")
+#' )
+#' hesim_dat <- hesim_data(
+#'   strategies = strategies,
+#'   patients = patients,
+#'   states = states
+#' )
+#' labs <- get_labels(hesim_dat)
+#' labs
+#' 
+#' # Pass to set_labels()
+#' d <- data.table(strategy_id = c(1, 1, 2, 2),
+#'                 grp_id = c(1, 2, 1, 2))
+#' set_labels(d, labs, new_name = c("strategy_name", "grp_name"))
+#' d
+#' @seealso [`hesim_data()`], [`set_labels()`]
+#' @export
+get_labels <- function(object, strategy = "strategy_name",
+                       grp = "grp_name", state = "state_name",
+                       transition = "transition_name", 
+                       death_label = "Death") {
+  check_is_class(object, "hesim_data", "object")
+
+  # All possible ID variables
+  tables <- c("strategies", "patients", "states", "transitions")
+  id_vars <- c("strategy_id", "grp_id", "state_id", "transition_id")
+  label_vars <- list(strategy, grp, state, transition)
+  
+  # Remove NULL labels and tables
+  label_keep1 <- which(sapply(label_vars, function (z) !is.null(z)))
+  table_keep <- which(tables %in% names(object))
+  keep <- intersect(label_keep1, table_keep)
+  if (length(keep) == 0) stop("There are no labels to get.")
+  
+  # Create table of non-NULL labels and tables
+  m <- data.table(
+    table = tables[keep], 
+    id = id_vars[keep],
+    label = unlist(label_vars[keep])
+  )
+
+  # Create labels
+  create_labels <- function(object, id_var, label_var, table_name) {
+    if (label_var %in% colnames(object[[table_name]])) {
+      x <- as.data.table(object[[table_name]])
+      x <- unique(x[, c(id_var, label_var), with = FALSE])
+      if (length(unique(x[[id_var]])) != nrow(x)) {
+        stop("There should be exactly one label for each ID value.",
+             call. = FALSE)
+      }
+      v <- x[[id_var]]
+      names(v) <- x[[label_var]]
+      return(v)
+    } else{
+      return(NULL)
+    } 
+  }
+  
+  l <- vector(mode = "list", length = nrow(m))
+  names(l) <- m$id
+  for (i in 1:length(l)){
+    labs <- create_labels(object, id_var = m$id[i], label_var = m$label[i],
+                           table_name = m$table[i])
+    if (!is.null(labs)) l[[i]] <- labs
+  }
+  l <- l[lengths(l) != 0]
+  if (length(l) == 0) stop("The selected labels are not contained in the tables of 'object'.")
+  
+  # Add death label
+  if ("state_id" %in% names(l) & !is.null(death_label)) {
+    l$state_id <- c(l$state_id, max(l$state_id) + 1L)
+    names(l$state_id)[length(l$state_id)] <- death_label
+  }
+
+  # Return
+  return(l)
 }
