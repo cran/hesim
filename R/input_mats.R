@@ -1,42 +1,55 @@
-# input_mats class -------------------------------------------------------------
+# Input matrices class ---------------------------------------------------------
 #' Input matrices for a statistical model
 #' 
-#' Create an object of class `input_mats`, which contains inputs matrices
+#' @description 
+#' An object of class `input_mats` contains input matrices
 #' for simulating a statistical model. Consists of (i) input matrices, `X`, and 
 #' (ii) [metadata][id_attributes()] used to index each matrix in `X`. 
+#' 
+#' Once created, an `input_mats` object can be converted 
+#' to a [`data.table`] with `as.data.table()`, which is a helpful way to check that 
+#' the object is as expected. The `print()` method summarizes the object and 
+#' prints it to the console. 
+#' 
 #' More details are provided under "Details" below. 
+#' 
 #' 
 #' @param X A list of input matrices for predicting the values of each parameter 
 #' in a statistical model. May also be a list of lists of input matrices when a 
 #' list of separate models is fit (e.g., with [flexsurvreg_list()]).
-#' @param ... Arguments to pass to [id_attributes()].
-#' @details Each row of each matrix `X` is an input vector, \eqn{x_{hik}}, where \eqn{h} denotes
-#' a health-related index, \eqn{i} indexes a patient, and \eqn{k} is a treatment strategy. 
-#' A health-related index is either a health state
-#' (e.g., `state_id` or a transition between health states (e.g., `transition_id`).
-#' In some cases, the health-related index \eqn{h} can be suppressed and separate models
-#' can be fit for each health index. This is, for instance, the case in a [partitioned survival 
-#' model][Psm] where separate models are fit for each survival endpoint. 
+#' @param ... For `input_mats()`, arguments to pass to [id_attributes()]. For `print()`,
+#' arguments to pass to [print.data.table()].
 #' 
-#' The rows of the matrices in `X` must be sorted in a manner consistent with the ID variables as
-#' described in [id_attributes()].
-#' @examples 
-#' strategies <- data.frame(strategy_id = c(1, 2))
-#' patients <- data.frame(patient_id = seq(1, 3), 
-#'                           age = c(45, 47, 60),
-#'                           female = c(1, 0, 0),
-#'                           group = factor(c("Good", "Medium", "Poor")))
-#' hesim_dat <- hesim_data(strategies = strategies,
-#'                         patients = patients)
+#' @details 
+#' `input_mats` objects are used with [`params`] objects to simulate
+#' disease models, cost models, and/or utility models. Each column of `$X` contains
+#' variables from the `params` object and a given row corresponds to a combination
+#' of the ID variables. An input matrix must always have rows for the treatment
+#' strategies (`strategy_id`) and patients (`patient_id`); it may optionally 
+#' have rows for health variables (`state_id` or `transition_id`) and time 
+#' intervals (`time_id`). The rows must be sorted by prioritizing (i) `strategy_id`,
+#' (ii) `patient_id`, (iii) the health related ID variable 
+#' (either `state_id` or `transition_id`) and (iv) `time_id`.
 #' 
-#' dat <- expand(hesim_dat, by = c("strategies", "patients"))
-#' input_mats <- input_mats(X = list(mu = model.matrix(~ age, dat)),
-#'                          strategy_id = dat$strategy_id,
-#'                          n_strategies = length(unique(dat$strategy_id)),
-#'                          patient_id = dat$patient_id,
-#'                         n_patients = length(unique(dat$patient_id)))
-#' print(input_mats)
-#' @seealso [create_input_mats()]
+#' While `input_mats` objects can be created directly with [input_mats()], it 
+#' is rarely a good idea to do so. They are typically created as the 
+#' `input_data` field when creating model objects (e.g., with 
+#' [create_IndivCtstmTrans()], [create_CohortDtstmTrans()], and 
+#' [create_PsmCurves()]). Internally, these functions 
+#' create the input matrices using [create_input_mats()] methods, which ensure
+#' that they are in the correct format. Users may also use [create_input_mats()] 
+#' methods, but there is not usually a good reason to do so. 
+#' 
+#' `as.data.table.input_mats()` will convert input matrices into a single 
+#' `data.table()` that column binds the ID variables and the unique combinations 
+#' of variables contained in the elements of `$X`. `print.input_mats()` prints
+#' a call to `as.data.table()` and provides additional information about the
+#' ID variables.
+#' 
+#' @example man-roxygen/example-input_mats.R
+#' @seealso See [IndivCtstmTrans()] and [PsmCurves()] for examples in which the
+#' `input_data` field of an instance of a model class is an `input_mats` object.
+#' 
 #' @export
 input_mats <- function(X, ...){
   object <- new_input_mats(X, ...)
@@ -45,7 +58,7 @@ input_mats <- function(X, ...){
 }
 
 new_input_mats <- function(X, ...){
-  stopifnot(is.matrix(X) | is.list(X) | is.null(X))
+  stopifnot(is.matrix(X) | is.list(X) | is.null(X)) 
   object <- c(list(X = X),
                    do.call("new_id_attributes", list(...)))
   object[sapply(object, is.null)] <- NULL
@@ -91,7 +104,58 @@ check.input_mats <- function(object){
   check(do.call("id_attributes", id_args))
 }
 
-# Create input data from a fitted model ----------------------------------------
+# Convert input matrices to data tables ----------------------------------------
+#' @param x An [`input_mats`] object.
+#' @rdname input_mats
+#' @export
+as.data.table.input_mats <- function(x, ...) {
+  
+  # Get ID columns
+  id_dt <- make_id_data_table(x)
+  
+  # Combine all X matrices
+  xl <- lapply(flatten_lists(x$X), as.data.table)
+  x_dt <- NULL
+  for (i in 1:length(xl)) {
+    cols_i <- colnames(xl[[i]])
+    new_cols <- cols_i[!cols_i %in% colnames(x_dt)]
+    if (length(new_cols) > 0) {
+      x_dt <- cbind(x_dt, xl[[i]][, new_cols, with = FALSE])
+    }
+  }
+  
+  # Create a single data.table
+  tbl <- cbind(id_dt, x_dt)
+  setattr(tbl, "id_vars", attr(id_dt, "id_vars"))
+  
+  # Return
+  tbl
+}
+
+# Print method for input matrices --------------------------------------------
+#' @rdname input_mats
+#' @export
+print.input_mats <- function(x, ...) {
+  x_dt <- as.data.table(x)
+  id_vars <- attr(x_dt, "id_vars")
+  size <- unlist(x[grepl("n_", names(x))])
+  
+  # Printing
+  cat("An \"input_mats\" object \n\n")
+  cat("Column binding the ID variables with all variables contained in the X matrices:\n")
+  print(as.data.table(x), ...)
+  cat("\n")
+  cat("Number of unique values of ID variables:\n")
+  print(size)
+  cat("\n")
+  if ("time_intervals" %in% names(x)) {
+    cat("Time intervals:\n")
+    print(x$time_intervals)
+  }
+  invisible(x)
+}
+
+# Helper functions to create input matrices ------------------------------------
 size_id_map <- function(){
   c(strategy_id = "n_strategies", 
     patient_id = "n_patients",
@@ -116,79 +180,67 @@ get_input_mats_id_vars <- function(data){
   return(res)
 }
 
-#' Check data argument for `create_input_mats`
+#' Check input data argument for `create_input_mats`
 #' 
-#' Check that data argument for `create_input_mats` exists and that it is
+#' Check that input data argument for `create_input_mats` exists and that it is
 #' of the correct type. 
-#' @param data An object of class "expanded_hesim_data" returned by the function
-#'  [expand.hesim_data]. 
+#' @param input_data An object of class "expanded_hesim_data" returned by the function
+#'  [expand.hesim_data()]. 
 #' @return If all tests passed, returns nothing; otherwise, throws an exception.
-check_edata <- function(data){
-  if (!inherits(data, "expanded_hesim_data")){
-    stop("'data' must be of class 'expanded_hesim_data'.")
+check_input_data <- function(input_data){
+  if (!inherits(input_data, "expanded_hesim_data")){
+    stop("'input_data' must be of class 'expanded_hesim_data'.")
   } 
-  if (!inherits(data, "data.table") & !inherits(data, "data.frame")){
-    stop("'data' must inherit from either 'data.table' or 'data.frame'.")
+  if (!inherits(input_data, "data.table") & !inherits(input_data, "data.frame")){
+    stop("'input_data' must inherit from either 'data.table' or 'data.frame'.")
   }   
-  if (!inherits(data, "data.table")){
-    setattr(data, "class", c("expanded_hesim_data", "data.table", "data.frame"))
+  if (!inherits(input_data, "data.table")){
+    setattr(input_data, "class", c("expanded_hesim_data", "data.table", "data.frame"))
   } 
 }
 
 extract_X <- function(coef_mat, data){
   varnames <- colnames(coef_mat)
   if (is.null(varnames)){
-    stop("Variable names for coefficients cannot be NULL.")
+    stop("Variable names for coefficients cannot be NULL.",
+         call. = FALSE)
   }
   if(!all(varnames %in% colnames(data))){
-    stop("Not all variables in 'object' are contained in 'data'.",
+    stop("Not all variables in 'object' are contained in 'input_data'.",
          call. = FALSE)
   }  
   X <- as.matrix(data[, varnames, with = FALSE])
+  if (!is.numeric(X)) {
+    stop("'input_data' must only include numeric variables.",
+         call. = FALSE)
+  }
   return(X)
 }
 
+get_terms <- function(object){
+  tt <- stats::terms(object)
+  return(stats::delete.response(tt))
+}
+
+# Generic method for creating input matrices  ----------------------------------
 #' Create input matrices
 #' 
-#' \code{create_input_mats} is a generic function for creating an object of class
-#' \code{\link{input_mats}}. Model matrices are typically constructed based on the 
-#' variables specified in the model \code{object} and the data specified in \code{data}, 
-#' although there are some cases in which \code{\link{input_mats}} can be created
-#' from \code{object} alone.
+#' `create_input_mats()` is a generic function for creating an object of class
+#' [`input_mats`]. Model matrices are constructed based on the 
+#' variables specified in the model `object` and the data specified in `input_data`.
+#' `create_input_mats()` is not typically called by users directly, but is 
+#' instead used by functions that create model objects (e.g., 
+#' [create_IndivCtstmTrans()], [create_CohortDtstmTrans()], 
+#' [create_PsmCurves()]).
 #' @param object An object of the appropriate class. 
-#' @param input_data An object of class "expanded_hesim_data" returned by the function
-#'  \code{\link{expand.hesim_data}}. Used to look for the input variables needed to create an input matrix
-#'  for use in a statistical models and the id variables for indexing rows in the input matrix. 
-#' @param ... Further arguments passed to \code{\link{model.matrix}}.
-#' @return An object of class \code{\link{input_mats}}.
-#' @seealso \code{\link{input_mats}}.
-#' @keywords internal
-#' @examples 
-#' library("flexsurv")
-#' 
-#' dt_strategies <- data.frame(strategy_id = c(1, 2))
-#' dt_patients <- data.frame(patient_id = seq(1, 3), 
-#'                           age = c(45, 47, 60),
-#'                           female = c(1, 0, 0),
-#'                           group = factor(c("Good", "Medium", "Poor")))
-#' dt_states <- data.frame(state_id =  seq(1, 3),
-#'                         state_name = factor(paste0("state", seq(1, 3))))
-#' hesim_dat <- hesim_data(strategies = dt_strategies,
-#'                         patients = dt_patients,
-#'                         states = dt_states)
-#'
-#' # Class "lm"
-#' expanded_dat <- expand(hesim_dat, by = c("strategies", "patients", "states"))
-#' fit_lm <- stats::lm(costs ~ female + state_name, psm4_exdata$costs$medical)
-#' input_mats <- create_input_mats(fit_lm, expanded_dat)
-#' class(input_mats)
-#'
-#' # Class "flexsurvreg"
-#' expanded_dat <- expand(hesim_dat, by = c("strategies", "patients"))
-#' fit_wei <- flexsurv::flexsurvreg(formula = Surv(futime, fustat) ~ 1, 
-#'                                  data = ovarian, dist = "weibull")
-#' input_mats <- create_input_mats(fit_wei, expanded_dat)
-#' class(input_mats)
+#' @param input_data An object of class `expanded_hesim_data` returned by
+#' [expand.hesim_data()]. It is used to look for the variables needed to create 
+#' an input matrix for use in a statistical models and the ID variables for 
+#' indexing rows in the input matrix. 
+#' @param ... Further arguments passed to [model.matrix()].
+#' @return An object of class `input_mats`.
+#' @seealso [input_mats()]
+#' @example man-roxygen/example-create_input_mats.R
 #' @export
 #' @rdname create_input_mats
 create_input_mats <- function (object, ...) {
@@ -198,6 +250,7 @@ create_input_mats <- function (object, ...) {
   UseMethod("create_input_mats", object)
 }
 
+# Create input matrices from formula  ------------------------------------------
 formula_list_rec <- function(object, input_data, ...){
   x <- vector(mode = "list", length = length(object))
   names(x) <- names(object)
@@ -211,25 +264,28 @@ formula_list_rec <- function(object, input_data, ...){
   return(x)
 }
 
+#' Create input matrices from formula
+#' 
+#' This is an internal function for creating input matrices from formulas. It
+#' is currently used in some unit tests.
+#' @inheritParams create_input_mats
+#' @inherit create_input_mats return
 #' @export
-#' @rdname create_input_mats
+#' @keywords internal
+#' @seealso [create_input_mats()]
 create_input_mats.formula_list <- function(object, input_data, ...){
-  check_edata(input_data)
+  check_input_data(input_data)
   X_list <- formula_list_rec(object, input_data, ...)
   args <- c(list(X = X_list),
-           get_input_mats_id_vars(input_data))
+            get_input_mats_id_vars(input_data))
   return(do.call("new_input_mats", args))
 }
 
-get_terms <- function(object){
-  tt <- stats::terms(object)
-  return(stats::delete.response(tt))
-}
-
+# Create input matrices from lm  -----------------------------------------------
 #' @export 
 #' @rdname create_input_mats
 create_input_mats.lm <- function(object, input_data, ...){
-  check_edata(input_data)
+  check_input_data(input_data)
   terms <- get_terms(object)
   X <- stats::model.matrix(terms, data = input_data, ...)
   args <- c(list(X = list(mu = X)),
@@ -237,21 +293,7 @@ create_input_mats.lm <- function(object, input_data, ...){
   return(do.call("new_input_mats", args))
 }
 
-#' @export 
-#' @rdname create_input_mats
-create_input_mats.lm_list <- function(object, input_data, ...){
-  check_edata(input_data)
-  X_list <- vector(mode = "list", length = length(object))
-  names(X_list) <- names(object)
-  for (i in 1:length(X_list)){
-    terms <- get_terms(object[[i]])
-    X_list[[i]] <- list(mu = stats::model.matrix(terms, data = input_data, ...))
-  }
-  args <- c(list(X = X_list),
-           get_input_mats_id_vars(input_data))
-  return(do.call("new_input_mats", args))
-}
-
+# Create input matrices from flexsurvreg  --------------------------------------
 create_input_mats_flexsurvreg_X <- function(object, input_data, ...){
   
   # Based on flexsurv:::form.model.matrix()
@@ -293,7 +335,7 @@ create_input_mats_flexsurvreg_X <- function(object, input_data, ...){
 #' @export
 #' @rdname create_input_mats
 create_input_mats.flexsurvreg <- function(object, input_data,...){
-  check_edata(input_data)
+  check_input_data(input_data)
   X_list <- create_input_mats_flexsurvreg_X(object, input_data, ...)
   args <- c(list(X = X_list),
            get_input_mats_id_vars(input_data))
@@ -303,7 +345,7 @@ create_input_mats.flexsurvreg <- function(object, input_data,...){
 #' @export
 #' @rdname create_input_mats
 create_input_mats.flexsurvreg_list <- function(object, input_data,...){
-  check_edata(input_data)
+  check_input_data(input_data)
   X_list_2d <- vector(mode = "list", length = length(object))
   names(X_list_2d) <- names(object)
   for (i in 1:length(object)){
@@ -314,42 +356,27 @@ create_input_mats.flexsurvreg_list <- function(object, input_data,...){
   return(do.call("new_input_mats", args))
 }
 
+# Create input matrices from partsurvfit  --------------------------------------
 #' @export
 #' @rdname create_input_mats
 create_input_mats.partsurvfit <- function(object, input_data, ...){
-  check_edata(input_data)
+  check_input_data(input_data)
   return(create_input_mats.flexsurvreg_list(object$models, input_data, ...))
 }
 
-#' @export
-create_input_mats.joined_flexsurvreg_list <- function(object, input_data,...){
-  check_edata(input_data)
-  models <- object$models
-  X_list_3d <- vector(mode = "list", length = length(models))
-  names(X_list_3d) <- names(models)
-  for (i in 1:length(models)){
-    X_list_3d[[i]] <- vector(mode = "list", length = length(models[[i]]))
-    names(X_list_3d[[i]]) <- names(models[[i]])
-    for (j in 1:length(models[[i]])){
-      X_list_3d[[i]][[j]] <- create_input_mats_flexsurvreg_X(models[[i]][[j]], input_data, ...)
-    }
-  }
-  args <- c(list(X = X_list_3d),
-           get_input_mats_id_vars(input_data))
-  return(do.call("new_input_mats", args))
-}
-
+# Create input matrices from params_lm  ----------------------------------------
 #' @export 
 #' @rdname create_input_mats
 create_input_mats.params_lm <- function(object, input_data, ...){
-  check_edata(input_data)
+  check_input_data(input_data)
   X <- extract_X(object$coefs, input_data)
   args <- c(list(X = list(mu = X)),
             get_input_mats_id_vars(input_data))
   return(do.call("new_input_mats", args))
 }
 
-create_input_mats.params_surv_X <- function(object, input_data){
+# Create input matrices from params_surv  --------------------------------------
+create_input_mats_params_surv_X <- function(object, input_data){
   X_list <- vector(mode = "list", length = length(object$coefs))
   names(X_list) <- names(object$coefs)
   for (i in 1:length(X_list)){
@@ -361,8 +388,8 @@ create_input_mats.params_surv_X <- function(object, input_data){
 #' @export 
 #' @rdname create_input_mats
 create_input_mats.params_surv <- function(object, input_data, ...){
-  check_edata(input_data)
-  X_list <- create_input_mats.params_surv_X(object, input_data)
+  check_input_data(input_data)
+  X_list <- create_input_mats_params_surv_X(object, input_data)
   args <- c(list(X = X_list),
             get_input_mats_id_vars(input_data))
   return(do.call("new_input_mats", args))
@@ -374,15 +401,16 @@ create_input_mats.params_surv_list <- function(object, input_data, ...){
   X_list_2d <- vector(mode = "list", length = length(object))
   names(X_list_2d) <- names(object)
   for (i in 1:length(object)){
-    X_list_2d[[i]] <- create_input_mats.params_surv_X(object[[i]], input_data)
+    X_list_2d[[i]] <- create_input_mats_params_surv_X(object[[i]], input_data)
   }
   args <- c(list(X = X_list_2d),
             get_input_mats_id_vars(input_data))
   return(do.call("new_input_mats", args))
 }
 
+# Create input matrices from multinom  -----------------------------------------
 create_input_mats_multinom_X <- function(object, input_data, ...){
-  check_edata(input_data)
+  check_input_data(input_data)
   terms <- get_terms(object)
   if (!is.null(attr(terms(object), "offset"))){
     stop("An offset is not supported.", call. = FALSE)
@@ -398,7 +426,7 @@ create_input_mats_multinom_X <- function(object, input_data, ...){
 #' @rdname create_input_mats
 create_input_mats.multinom <- function(object, input_data, ...){
   X <- create_input_mats_multinom_X(object, input_data, ...)
-  args <- c(list(X = X ),
+  args <- c(list(X = X),
             get_input_mats_id_vars(input_data))
   return(do.call("new_input_mats", args))
 }
@@ -410,6 +438,19 @@ create_input_mats.multinom_list <- function(object, input_data, ...){
   names(X_list) <- names(object)
   for (i in 1:length(object)){
     X_list[[i]] <- create_input_mats_multinom_X(object[[i]], input_data, ...)
+  }
+  args <- c(list(X = X_list),
+            get_input_mats_id_vars(input_data))
+  return(do.call("new_input_mats", args))
+}
+
+# Create input matrices from mlogit  -------------------------------------------
+#' @export 
+#' @rdname create_input_mats
+create_input_mats.params_mlogit_list <- function(object, input_data, ...){
+  X_list <- vector(mode = "list", length = length(object))
+  for (i in 1:length(object)){
+    X_list[[i]] <- extract_X(object[[i]]$coefs[, , 1], input_data)
   }
   args <- c(list(X = X_list),
             get_input_mats_id_vars(input_data))

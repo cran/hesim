@@ -8,7 +8,7 @@ An \link[R6:R6Class]{R6::R6Class} object.
 }
 \description{
 Simulate health state transitions in an individual-level continuous time state
-transition model with parameters that were estimated using a multi-state model.
+transition model using parameters from a multi-state model.
 }
 \examples{
 library("flexsurv")
@@ -25,7 +25,7 @@ tmat <- rbind(c(NA, 1, 2),
               c(NA, NA, NA))
 fits <- vector(length = max(tmat, na.rm = TRUE), mode = "list")
 for (i in 1:length(fits)){
-  fits[[i]] <- flexsurvreg(Surv(years, status) ~ 1, 
+  fits[[i]] <- flexsurvreg(Surv(years, status) ~ 1,
                            data = bosms3[bosms3$trans == i, ],
                            dist = "exp")
 }
@@ -35,7 +35,7 @@ fits <- flexsurvreg_list(fits)
 hesim_dat <- hesim_data(strategies = strategies,
                         patients = patients)
 fits_data <- expand(hesim_dat)
-transmod <- create_IndivCtstmTrans(fits, input_data = fits_data, 
+transmod <- create_IndivCtstmTrans(fits, input_data = fits_data,
                                    trans_mat = tmat,
                                    n = 2)
 head(transmod$hazard(c(1, 2, 3)))
@@ -47,10 +47,11 @@ transmod$sim_stateprobs(t = c(0, 5, 10))[t == 5]
 ## Simulate disease progression and state probabilities separately
 disprog <- transmod$sim_disease(max_t = 10)
 transmod$sim_stateprobs(t = c(0, 5, 10), disprog = disprog)[t == 5]
-
 }
 \seealso{
-\code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}, \code{\link{IndivCtstm}}
+\code{IndivCtstmTrans} objects are conveniently created from either
+fitted models or parameter objects with \code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}.
+A complete economic model can be implemented with the \code{\link{IndivCtstm}} class.
 }
 \section{Super class}{
 \code{\link[hesim:CtstmTrans]{hesim::CtstmTrans}} -> \code{IndivCtstmTrans}
@@ -70,7 +71,7 @@ and patient; if \code{params} contains parameters from a joint model
 row for each treatment strategy, patient, and transition.}
 
 \item{\code{trans_mat}}{A transition matrix describing the states and transitions
-in a multi-state model in the format from the \code{\link[mstate:mstate]{mstate}} package.
+in a multi-state model in the format from the \code{\link[mstate:mstate-package]{mstate}} package.
 See the documentation for the argument \code{"trans"} in \code{\link[mstate:msprep]{mstate::msprep}}.}
 
 \item{\code{start_state}}{A scalar or vector denoting the starting health state.

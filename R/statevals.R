@@ -1,3 +1,93 @@
+# StateVals class --------------------------------------------------------------
+#' Model for state values
+#' 
+#' @description
+#' Simulate values (i.e., utility or costs) associated with health states in a 
+#' state transition or partitioned survival model. 
+#' 
+#' @example man-roxygen/example-StateVals.R
+#' @name StateVals
+NULL
+
+#' @rdname StateVals
+#' @export
+StateVals <- R6::R6Class(
+  "StateVals",
+  
+  public = list(
+    #' @field params Parameters for simulating state values. Currently supports
+    #'  objects of class [`tparams_mean`] or [`params_lm`].   
+    params = NULL,
+    
+    #' @field input_data  An object of class [input_mats]. Only used for
+    #' [`params_lm`] objects.
+    input_data = NULL,
+    
+    #' @field method The method used to simulate costs and 
+    #' quality-adjusted life-years (QALYs) as a function of state values.
+    #'  If `wlos`, then costs and QALYs are
+    #' simulated by weighting state values by the length of stay in a health
+    #' state. If `starting`, then state values represent a one-time value
+    #' that occurs when a patient enters a health state. When `starting` is 
+    #' used in a cohort model, the state values only accrue at time 0; 
+    #' in contrast, in an individual-level model, state values
+    #' accrue each time a patient enters a new state and are discounted based on
+    #' time of entrance into that state. 
+    method = NULL,
+    
+    #' @field time_reset If `FALSE` then time intervals are based on time since
+    #'  the start of the simulation. If `TRUE`, then time intervals reset each 
+    #'  time a patient enters a new health state. This is relevant if, for example, 
+    #'  costs vary over time within health states. Only used if `method = wlos`.
+    time_reset = NULL,    
+    
+    #' @description
+    #' Create a new `StateVals` object.
+    #' @param params The `params` field.
+    #' @param input_data The `input_data` field.
+    #' @param method The `method` field.
+    #' @param time_reset The `time_reset` field.
+    #' @return A new `StateVals` object.
+    initialize = function(params, input_data = NULL,
+                          method = c("wlos", "starting"),
+                          time_reset = FALSE) {
+      self$params <- params
+      self$input_data <- input_data
+      self$method <- match.arg(method)
+      self$time_reset <- time_reset
+    },
+    
+    #' @description
+    #' Simulate state values with either predicted means or random samples by
+    #'  treatment strategy, patient, health state, and time `t`.
+    #' @param t A numeric vector of times. 
+    #' @param type  `"predict"` for mean values or `"random"` for random samples. 
+    #' @return A `data.table` of simulated state values with columns for `sample`,
+    #' `strategy_id`, `patient_id`, `state_id`, `time`, and `value`.  
+    sim = function(t, type = c("predict", "random")){
+      type <- match.arg(type)
+      self$check()
+      res <- data.table(C_statevals_sim(self, sort(t), type))
+      res[, sample := sample + 1]
+      return(res[])
+    },
+    
+    #' @description
+    #' Input validation for class. Checks that fields are the correct type. 
+    check = function(){
+      if(!inherits(self$params, c("tparams_mean", "params_lm"))){
+        stop("Class of 'params' is not supported. See documentation.",
+             call. = FALSE)
+      }      
+      if(!inherits(self$input_data, c("input_mats", "NULL"))){
+        stop("'input_data' must be an object of class 'input_mats'",
+             call. = FALSE)
+      }
+      stopifnot(is.logical(self$time_reset))
+    }
+  )
+)
+
 # stateval_tbl -----------------------------------------------------------------
 #' Table to store state value parameters
 #' 
@@ -228,7 +318,7 @@ stateval_tbl <- function(tbl, dist = c("norm", "beta", "gamma",
   return(tbl2)
 }
 
-# StateVals --------------------------------------------------------------------
+# create_StateVals methods -----------------------------------------------------
 #' Create a `StateVals` object
 #' 
 #' `create_StateVals()` is a generic function for creating an object of class
@@ -251,13 +341,16 @@ stateval_tbl <- function(tbl, dist = c("norm", "beta", "gamma",
 #'   combination. Patients are matched to groups by specifying both a `patient_id` 
 #'   and a `grp_var` column in the `patients` table.
 #' @return A [`StateVals`] object.
-#' @seealso [`StateVals`], [`stateval_tbl()`]
+#' @seealso See [`StateVals`] for documentation of the class and additional examples. 
+#' An example use case for [create_StateVals.stateval_tbl()] is provided in 
+#' the [stateval_tbl()] documentation.
 #' @export
 create_StateVals <- function(object, ...){
   UseMethod("create_StateVals", object)
 } 
  
 #' @rdname create_StateVals
+#' @example man-roxygen/example-create_StateVals.lm.R
 #' @export  
 create_StateVals.lm <- function(object, input_data = NULL, n = 1000,
                                 uncertainty = c("normal", "none"), ...){
@@ -326,7 +419,7 @@ create_StateVals.stateval_tbl <- function(object, hesim_data = NULL, n = 1000, .
     if (all(c("shape1", "shape2") %in% colnames(tbl))){
       mu <- stats::rbeta(n * n_rows, shape1 = tbl$shape1, shape2 = tbl$shape2)
     } else if (all(c("mean", "se") %in% colnames(tbl))){
-      mu <- mom_fun_rng(rng_fun = "rbeta", mom_fun = "mom_beta",
+      mu <- mom_fun_rng(n, rng_fun = "rbeta", mom_fun = "mom_beta",
                         mean = tbl$mean, sd = tbl$se)
     } 
   } else if (attr(object, "dist") == "gamma"){
@@ -335,7 +428,7 @@ create_StateVals.stateval_tbl <- function(object, hesim_data = NULL, n = 1000, .
     } else if (all(c("shape", "scale") %in% colnames(tbl))){
       mu <- stats::rgamma(n * n_rows, shape = tbl$shape, scale = tbl$scale)
     } else if (all(c("mean", "se") %in% colnames(tbl))){
-      mu <- mom_fun_rng(rng_fun = "rgamma", mom_fun = "mom_gamma",
+      mu <- mom_fun_rng(n, rng_fun = "rgamma", mom_fun = "mom_gamma",
                         mean = tbl$mean, sd = tbl$se)
     } 
   } else if (attr(object, "dist") == "lnorm"){
@@ -447,208 +540,3 @@ create_StateVals.eval_model <- function(object, cost = TRUE, name = NULL,
                            init_args)))
 }
 
-#' Model for state values
-#' 
-#' @description
-#' Simulate values (i.e., utility or costs) associated with health states in a 
-#' state transition or partitioned survival model. 
-#' @export
-StateVals <- R6::R6Class("StateVals",
-  public = list(
-    #' @field params Parameters for simulating state values. Currently supports
-    #'  objects of class [`tparams_mean`] or [`params_lm`].   
-    params = NULL,
-    
-    #' @field input_data  An object of class [input_mats]. Only used for
-    #' [`params_lm`] objects.
-    input_data = NULL,
-    
-    #' @field method The method used to simulate costs and 
-    #' quality-adjusted life-years (QALYs) as a function of state values.
-    #'  If `wlos`, then costs and QALYs are
-    #' simulated by weighting state values by the length of stay in a health
-    #' state. If `starting`, then state values represent a one-time value
-    #' that occurs when a patient enters a health state. When `starting` is 
-    #' used in a cohort model, the state values only accrue at time 0; 
-    #' in contrast, in an individual-level model, state values
-    #' accrue each time a patient enters a new state and are discounted based on
-    #' time of entrance into that state. 
-    method = NULL,
-    
-    #' @field time_reset If `FALSE` then time intervals are based on time since
-    #'  the start of the simulation. If `TRUE`, then time intervals reset each 
-    #'  time a patient enters a new health state. This is relevant if, for example, 
-    #'  costs vary over time within health states. Only used if `method = wlos`.
-    time_reset = NULL,    
-
-    #' @description
-    #' Create a new `StateVals` object.
-    #' @param params The `params` field.
-    #' @param input_data The `input_data` field.
-    #' @param method The `method` field.
-    #' @param time_reset The `time_reset` field.
-    #' @return A new `StateVals` object.
-    initialize = function(params, input_data = NULL,
-                          method = c("wlos", "starting"),
-                          time_reset = FALSE) {
-      self$params <- params
-      self$input_data <- input_data
-      self$method <- match.arg(method)
-      self$time_reset <- time_reset
-    },
-    
-    #' @description
-    #' Simulate state values with either predicted means or random samples by
-    #'  treatment strategy, patient, health state, and time `t`.
-    #' @param t A numeric vector of times. 
-    #' @param type  `"predict"` for mean values or `"random"` for random samples. 
-    #' @return A `data.table` of simulated state values with columns for `sample`,
-    #' `strategy_id`, `patient_id`, `state_id`, `time`, and `value`.  
-    sim = function(t, type = c("predict", "random")){
-      type <- match.arg(type)
-      self$check()
-      res <- data.table(C_statevals_sim(self, t, type))
-      res[, sample := sample + 1]
-      return(res[])
-    },
-    
-    #' @description
-    #' Input validation for class. Checks that fields are the correct type. 
-    check = function(){
-      if(!inherits(self$params, c("tparams_mean", "params_lm"))){
-        stop("Class of 'params' is not supported. See documentation.",
-             call. = FALSE)
-      }      
-      if(!inherits(self$input_data, c("input_mats", "NULL"))){
-        stop("'input_data' must be an object of class 'input_mats'",
-            call. = FALSE)
-      }
-      stopifnot(is.logical(self$time_reset))
-    }
-  )
-)
-
-# Expected values --------------------------------------------------------------
-sim_ev <- function (object, ...) {
-  UseMethod("sim_ev", object)
-}
-
-sim_ev.NULL <- function(object, ...) {
-  if (is.null(object)) {
-    stop("You must first simulate state probabilities using '$sim_stateprobs'.",
-         call. = FALSE)
-  }
-}
-
-
-sim_ev.stateprobs <- function(object, statevalmods, categories, dr = .03,
-                              integrate_method = c("trapz", "riemann_left", "riemann_right")){
-  integrate_method <- match.arg(integrate_method)
-  state_id <- NULL
-  
-  # Checks
-  ## State probabilities
-  if(is.null(object)){
-    stop("You must first simulate health state probabilities.",
-         call. = FALSE)
-  }
-  
-  ## Discount rate
-  check_dr(dr)
-  
-  ## The size of ID variables is correct
-  check_StateVals(statevalmods, object)
-  
-  # Simulate
-  res <- data.table(C_sim_ev(object[state_id != max(state_id)],
-                             statevalmods,
-                             dr, categories,
-                             unique(object$t),
-                             integrate_method))
-  res[, sample := sample + 1]
-  if (!"patient_wt" %in% colnames(object)) res[, ("patient_wt") := NULL]
-  return(res[])
-} 
-
-sim_los <- function (object, utility_model, dr, 
-                     integrate_method = c("trapz", "riemann_left", "riemann_right")) {
-  state_id <- NULL # To avoid no visible binding note
-  n_samples <- utility_model$params$n_samples
-  id <- get_id_object(utility_model)
-  n_obs <- n_samples * id$n_strategies * id$n_patients * id$n_states
-  los <- C_sim_los(stateprobs = object[state_id != max(state_id)]$prob,
-                   n_obs = n_obs,
-                   dr = dr,
-                   times = unique(object$t),
-                   integrate_method = match.arg(integrate_method))
-  return(los)
-}
-
-#' Expected values
-#' 
-#' Simulate costs and quality-adjusted life-years (QALYs) as a function of
-#' simulated state occupancy probabilities. 
-#' 
-#' @param object A [`stateprobs`] object.
-#' @param utility_model A single object of class [`StateVals`] used
-#' to simulate utility.
-#' @param cost_models A list of objects of class [`StateVals`] used
-#' to simulate costs.
-#' @param dr Discount rate. 
-#' @param integrate_method Method used to integrate state values when computing 
-#' weighted length of stay. Options are `trapz` for the trapezoid rule,
-#' `riemann_left` left for a left Riemann sum, and  
-#' `riemann_right` right for a right Riemann sum.
-#' @param lys If `TRUE`, then life-years are simulated in addition to 
-#' QALYs. 
-#' @keywords internal
-#' @return [`sim_costs()`] and [`sim_qalys()`] return objects of class
-#' [`costs`] and [`qalys`], respectively. 
-#' @details 
-#' See `vignette("expected-values")` for details.
-#'
-#' @name sim_ev
-sim_qalys <- function(object, utility_model, dr, integrate_method, lys){
-  utility_model$check()
-  qalys <- sim_ev(object,
-                  list(utility_model),
-                  "qalys",
-                  dr,
-                  integrate_method)
-  if (lys){
-    los <- sim_los(object,
-                   utility_model,
-                   dr,
-                   integrate_method)
-    qalys[, lys := los]
-  }
-  qalys[, ("category") := NULL]
-  setnames(qalys, "value", "qalys")
-  setattr(qalys, "class", 
-          c("qalys", "data.table", "data.frame"))
-  return(qalys[, ])
-}
-
-#' @rdname sim_ev
-sim_costs <- function(object, cost_models, dr, integrate_method){
-  if(!is.list(cost_models)){
-    stop("'cost_models' must be a list", call. = FALSE)
-  }
-  for (i in 1:length(cost_models)){
-    cost_models[[i]]$check()
-  }
-  if (is.null(names(cost_models))){
-    categories <- paste0("Category ", seq(1, length(cost_models)))
-  } else{
-    categories <- names(cost_models)
-  }   
-  costs <- sim_ev(object,
-                  cost_models,
-                  categories,
-                  dr,
-                  integrate_method)
-  setnames(costs, "value", "costs")
-  setattr(costs, "class", 
-          c("costs", "data.table", "data.frame"))
-  return(costs[, ])
-}

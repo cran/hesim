@@ -15,16 +15,18 @@ library("ggplot2")
 theme_set(theme_bw())
 set.seed(102)
 
-# NOTE: This example replicates the "Simple Markov cohort model" vignette
-# using a different approach (i.e., one that is not based on non-standard
-# evaluation). The non-standard evaluation based approach does (more or less) 
-# what is done here under the hood.
+# NOTE: This example replicates the "Simple Markov cohort model" 
+# vignette using a different approach. Here, we explicitly construct
+# the transition probabilities "by hand". In the vignette, the transition 
+# probabilities are defined using expressions (i.e., by using 
+# `define_model()`). The `define_model()` approach does (more or less) what 
+# is done here under the hood.
 
 # (0) Model setup
 hesim_dat <- hesim_data(
   strategies = data.table(
     strategy_id = 1:2,
-     strategy_name = c("Monotherapy", "Combination therapy")
+    strategy_name = c("Monotherapy", "Combination therapy")
   ),
   patients <- data.table(patient_id = 1),
   states = data.table(
@@ -39,7 +41,7 @@ labs <- get_labels(hesim_dat)
 n_samples <- 10 # Number of samples for PSA
 
 ## Transition matrix
-### Input data (one transition matrix for each parameter sample, 
+### Input data (one transition matrix for each parameter sample,
 ###             treatment strategy, patient, and time interval)
 p_id <- tpmatrix_id(expand(hesim_dat, times = c(0, 2)), n_samples)
 N <- nrow(p_id)
@@ -53,7 +55,7 @@ trans_mono <- rbind(
   c(0, 731, 512, 15),
   c(0, 0, 1312, 437),
   c(0, 0, 0, 469)
-)  
+)
 mono_ind <- which(p_id$strategy_id == 1 | p_id$time_id == 2)
 p[,, mono_ind] <- rdirichlet_mat(n = 2, trans_mono)
 
@@ -67,8 +69,8 @@ rr_indices <- list( # Indices of transition matrix to apply RR to
   c(3, 4)
 )
 rr_mat <- matrix(rr, nrow = n_samples, ncol = length(rr_indices))
-p[,, combo_ind] <- apply_rr(p[, , mono_ind], 
-                            rr = rr_mat, 
+p[,, combo_ind] <- apply_rr(p[, , mono_ind],
+                            rr = rr_mat,
                             index = rr_indices)
 tp <- tparams_transprobs(p, p_id)
 
@@ -115,18 +117,18 @@ cmedcost_tbl <- stateval_tbl(
 transmod <- CohortDtstmTrans$new(params = tp)
 
 ### Utility
-utilitymod <- create_StateVals(utility_tbl, 
+utilitymod <- create_StateVals(utility_tbl,
                                hesim_data = hesim_dat,
                                n = n_samples)
 
 ### Costs
-drugcostmod <- create_StateVals(drugcost_tbl, 
+drugcostmod <- create_StateVals(drugcost_tbl,
                                 hesim_data = hesim_dat,
                                 n = n_samples)
-dmedcostmod <- create_StateVals(dmedcost_tbl, 
+dmedcostmod <- create_StateVals(dmedcost_tbl,
                                 hesim_data = hesim_dat,
                                 n = n_samples)
-cmedcostmod <- create_StateVals(cmedcost_tbl, 
+cmedcostmod <- create_StateVals(cmedcost_tbl,
                                 hesim_data = hesim_dat,
                                 n = n_samples)
 costmods <- list(drug = drugcostmod,
@@ -152,10 +154,26 @@ cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0, dr_costs = .06,
                      k = wtp)
 format(icer(cea_pw_out))
 }
+\references{
+\href{https://arxiv.org/abs/2102.09437}{Incerti and Jansen (2021)}.
+See Section 2.1 for a description of a cohort DTSTM and details on
+simulating costs and QALYs from state probabilities. An example in oncology
+is provided in Section 4.3.
+}
 \seealso{
-\code{\link[=create_CohortDtstm]{create_CohortDtstm()}}, \code{\link{CohortDtstmTrans}},
-\code{\link[=create_CohortDtstmTrans]{create_CohortDtstmTrans()}},  \code{vignette("markov-cohort")},
-\code{vignette("markov-inhomogeneous-cohort")}, \code{vignette("mlogit")},
+\code{CohortDtstm} objects can be created from model objects as
+documented in \code{\link[=create_CohortDtstm]{create_CohortDtstm()}}. The \code{\link{CohortDtstmTrans}} documentation
+describes the class for the transition model and the \code{\link{StateVals}} documentation
+describes the class for the cost and utility models. A \code{\link{CohortDtstmTrans}}
+object is typically created using \code{\link[=create_CohortDtstmTrans]{create_CohortDtstmTrans()}}.
+
+There are currently three relevant vignettes. \code{vignette("markov-cohort")}
+details a relatively simple Markov model and
+\code{vignette("markov-inhomogeneous-cohort")} describes a more complex time
+inhomogeneous model in which transition probabilities vary in every model
+cycle. The \code{vignette("mlogit")} shows how a transition model can be parameterized
+using a multinomial logistic regression model when transition data is collected
+at evenly spaced intervals.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -239,7 +257,7 @@ stored in \code{stateprobs_}.
 \if{latex}{\out{\hypertarget{method-sim_qalys}{}}}
 \subsection{Method \code{sim_qalys()}}{
 Simulate quality-adjusted life-years (QALYs) as a function of \code{stateprobs_} and
-\code{utility_model}. See \code{vignette("expected-values")} for details.
+\code{utility_model}. See \code{sim_qalys()} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CohortDtstm$sim_qalys(
   dr = 0.03,
@@ -253,7 +271,10 @@ Simulate quality-adjusted life-years (QALYs) as a function of \code{stateprobs_}
 \describe{
 \item{\code{dr}}{Discount rate.}
 
-\item{\code{integrate_method}}{Method used to integrate state values when computing (QALYs).}
+\item{\code{integrate_method}}{Method used to integrate state values when computing
+costs or QALYs. Options are \code{trapz} for the trapezoid rule,
+\code{riemann_left} for a left Riemann sum, and
+\code{riemann_right} for a right Riemann sum.}
 
 \item{\code{lys}}{If \code{TRUE}, then life-years are simulated in addition to QALYs.}
 }
@@ -269,7 +290,7 @@ in \code{qalys_}.
 \if{latex}{\out{\hypertarget{method-sim_costs}{}}}
 \subsection{Method \code{sim_costs()}}{
 Simulate costs as a function of \code{stateprobs_} and \code{cost_models}.
-See \code{vignette("expected-values")} for details.
+See \code{sim_costs()} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{CohortDtstm$sim_costs(
   dr = 0.03,
@@ -282,7 +303,10 @@ See \code{vignette("expected-values")} for details.
 \describe{
 \item{\code{dr}}{Discount rate.}
 
-\item{\code{integrate_method}}{Method used to integrate state values when computing costs.}
+\item{\code{integrate_method}}{Method used to integrate state values when computing
+costs or QALYs. Options are \code{trapz} for the trapezoid rule,
+\code{riemann_left} for a left Riemann sum, and
+\code{riemann_right} for a right Riemann sum.}
 }
 \if{html}{\out{</div>}}
 }

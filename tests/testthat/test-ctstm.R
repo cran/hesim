@@ -337,9 +337,9 @@ test_that("Simulate costs and QALYs", {
   ictstm2$utility_model$params$n_states <- -1
   expect_error(
     ictstm2$sim_qalys(),
-    paste0("The number of states in each 'StateVals' model must be one less ",
-           "(since state values are not applied to the death state) than ",
-           "the number of states in the 'disprog' object, which is 3."),
+    paste0("The number of states in each 'StateVals' model must equal ",
+           "the number of states in the 'disprog' object less the number ",
+           "of absorbing states, which is 2."),
     fixed = TRUE
   )
   
@@ -646,16 +646,27 @@ test_that("IndivCtstm - survspline", {
   
   # Warnings
   spline_args$aux$random_method <- "sample"
-  expect_warning(do.call("params_surv", spline_args))
+  spline_args$aux$scale <- "log_cumhazard"
+  expect_warning(
+    do.call("params_surv", spline_args),
+    "'random_method' = 'sample' is deprecated. Use 'discrete' instead."
+  )
   
   # Errors
   ## Need step size
   ### (1)
   spline_args$aux$random_method <- "discrete"
-  expect_error(do.call("params_surv", spline_args))
+  spline_args$aux$scale <- "log_hazard"
+  expect_error(
+    do.call("params_surv", spline_args),
+    "'step' must be specified"
+  )
   
   ### (2)
   spline_args$aux$random_method <- "invcdf"
   spline_args$aux$cumhaz_method <- "riemann"
-  expect_error(do.call("params_surv", spline_args)) 
+  expect_error(
+    do.call("params_surv", spline_args),
+    "'step' must be specified"
+  ) 
 })

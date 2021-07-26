@@ -13,23 +13,30 @@
 \alias{uniform_rng}
 \title{Random number generation distributions}
 \usage{
-beta_rng(shape1 = 1, shape2 = 1, mean = NULL, sd = NULL, names = NULL)
+beta_rng(
+  shape1 = 1,
+  shape2 = 1,
+  mean = NULL,
+  sd = NULL,
+  names = NULL,
+  n = parent.frame()$n
+)
 
-dirichlet_rng(alpha, names = NULL)
+dirichlet_rng(alpha, names = NULL, n = parent.frame()$n)
 
-fixed(est, names = NULL)
+fixed(est, names = NULL, n = parent.frame()$n)
 
-custom(x, names = NULL)
+custom(x, names = NULL, n = parent.frame()$n)
 
-gamma_rng(mean, sd, names = NULL)
+gamma_rng(mean, sd, names = NULL, n = parent.frame()$n)
 
-lognormal_rng(meanlog, sdlog, names = NULL)
+lognormal_rng(meanlog, sdlog, names = NULL, n = parent.frame()$n)
 
-multi_normal_rng(mu, Sigma, names = NULL, ...)
+multi_normal_rng(mu, Sigma, names = NULL, n = parent.frame()$n, ...)
 
-normal_rng(mean, sd, names = NULL)
+normal_rng(mean, sd, names = NULL, n = parent.frame()$n)
 
-uniform_rng(min, max, names = NULL)
+uniform_rng(min, max, names = NULL, n = parent.frame()$n)
 }
 \arguments{
 \item{shape1, shape2}{Non-negative parameters of the Beta distribution.}
@@ -38,6 +45,11 @@ uniform_rng(min, max, names = NULL)
 
 \item{names}{Names for columns if an object with multiple columns is returned
 by the function.}
+
+\item{n}{The number of random samples of the parameters to draw. Default is
+the value of \code{n} in the environment in which the function is called, which
+can be useful when used inside \code{define_rng} because it means that a value does
+not need to be explicitly passed to \code{n}.}
 
 \item{alpha}{A matrix where each row is a separate vector of shape parameters.}
 
@@ -99,7 +111,7 @@ functions include:
 \item{\code{beta_rng()}}{If \code{mean} and \code{sd} are both not \code{NULL}, then
 parameters of the beta distribution are derived using
 the methods of moments with \code{\link[=mom_beta]{mom_beta()}}. Beta variates are generated with
-\code{\link[stats:rbeta]{stats::rbeta()}}.}
+\code{\link[stats:Beta]{stats::rbeta()}}.}
 \item{\code{custom()}}{Use previously sampled values from a custom probability distribution.
 There are three possibilities: (i) if \code{n} is equal to the number previously
 sampled values (say \code{n_samples}), then \code{x} is returned as is; (ii) if
@@ -117,11 +129,11 @@ is repeated \code{n} times; otherwise (if \code{length(est) == 1}), a vector is 
 where \code{est} is repeated \code{n} times.}
 \item{\code{gamma_rng()}}{The parameters of the gamma distribution are derived using
 the methods of moments with \code{\link[=mom_gamma]{mom_gamma()}} and gamma variates are generated
-with \code{\link[stats:rgamma]{stats::rgamma()}}.}
-\item{\code{lognormal_rng()}}{Lognormal variates are generated with \code{\link[stats:rlnorm]{stats::rlnorm()}}.}
+with \code{\link[stats:GammaDist]{stats::rgamma()}}.}
+\item{\code{lognormal_rng()}}{Lognormal variates are generated with \code{\link[stats:Lognormal]{stats::rlnorm()}}.}
 \item{\code{multi_normal_rng()}}{Multivariate normal variates are generated with \code{\link[MASS:mvrnorm]{MASS::mvrnorm()}}.}
-\item{\code{normal_rng()}}{Normal variates are generated with \code{\link[stats:rnorm]{stats::rnorm()}}.}
-\item{\code{uniform_rng()}}{Uniform variates are generated with \code{\link[stats:runif]{stats::runif()}}.}
+\item{\code{normal_rng()}}{Normal variates are generated with \code{\link[stats:Normal]{stats::rnorm()}}.}
+\item{\code{uniform_rng()}}{Uniform variates are generated with \code{\link[stats:Uniform]{stats::runif()}}.}
 
 }
 }

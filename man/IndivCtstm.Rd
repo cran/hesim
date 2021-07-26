@@ -8,9 +8,9 @@ An \link[R6:R6Class]{R6::R6Class} object.
 }
 \description{
 Simulate outcomes from an individual-level continuous time state transition
-model (CTSTM) from a fitted multi-state model. The class supports "clock-reset"
+model (CTSTM). The class supports "clock-reset"
 (i.e., semi-Markov), "clock-forward" (i.e., Markov), and mixtures of
-clock-reset and clock-forward models as described in
+clock-reset and clock-forward multi-state models as described in
 \code{\link{IndivCtstmTrans}}.
 }
 \examples{
@@ -34,7 +34,7 @@ tmat <- rbind(c(NA, 1, 2),
 fits <- vector(length = max(tmat, na.rm = TRUE), mode = "list")
 surv_dat <- data.frame(mstate3_exdata$transitions)
 for (i in 1:length(fits)){
-  fits[[i]] <- flexsurvreg(Surv(years, status) ~ factor(strategy_id), 
+  fits[[i]] <- flexsurvreg(Surv(years, status) ~ factor(strategy_id),
                            data = surv_dat,
                            subset = (trans == i),
                            dist = "weibull")
@@ -49,23 +49,23 @@ utility_tbl <- stateval_tbl(data.frame(state_id = states$state_id,
 ## Costs
 drugcost_tbl <- stateval_tbl(data.frame(strategy_id = strategies$strategy_id,
                                         est = mstate3_exdata$costs$drugs$costs),
-                             dist = "fixed") 
+                             dist = "fixed")
 medcost_tbl <- stateval_tbl(data.frame(state_id = states$state_id,
                                        mean = mstate3_exdata$costs$medical$mean,
                                        se = mstate3_exdata$costs$medical$se),
-                            dist = "gamma")  
+                            dist = "gamma")
 
 # Economic model
 n_samples = 2
 
 ## Construct model
-### Transitions 
+### Transitions
 transmod_data <- expand(hesim_dat)
-transmod <- create_IndivCtstmTrans(fits, input_data = transmod_data, 
+transmod <- create_IndivCtstmTrans(fits, input_data = transmod_data,
                                    trans_mat = tmat,
                                    n = n_samples)
 
-### Utility 
+### Utility
 utilitymod <- create_StateVals(utility_tbl, n = n_samples, hesim_data = hesim_dat)
 
 ### Costs
@@ -90,10 +90,25 @@ ictstm$sim_costs(dr = .03)
 ce <- ictstm$summarize()
 head(ce)
 format(summary(ce), pivot_from = "strategy")
-
+}
+\references{
+\href{https://arxiv.org/abs/2102.09437}{Incerti and Jansen (2021)}.
+See Section 2.2 for a mathematical description of an individual-level CTSTM and Section 4.1 for
+an example in oncology.
 }
 \seealso{
-\code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}, \code{\link{IndivCtstmTrans}}
+The \code{\link{IndivCtstmTrans}} documentation
+describes the class for the transition model and the \code{\link{StateVals}} documentation
+describes the class for the cost and utility models. An \code{\link{IndivCtstmTrans}}
+object is typically created using \code{\link[=create_IndivCtstmTrans]{create_IndivCtstmTrans()}}.
+
+There are currently two relevant vignettes. \code{vignette("mstate")} shows how to
+parameterize \code{IndivCtstmTrans} objects in cases where patient-level data is
+available by fitting a multi-state models. \code{vignette("markov-inhomogeneous-indiv")}
+shows how the time inhomogeneous Markov cohort model in
+\code{vignette("markov-inhomogeneous-cohort")} can be developed as an individual
+patient simulation; in doing so, it shows how \code{IndivCtstm} models can be
+used even without access to patient-level data.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -211,7 +226,7 @@ stored in \code{stateprobs_}.
 \if{latex}{\out{\hypertarget{method-sim_qalys}{}}}
 \subsection{Method \code{sim_qalys()}}{
 Simulate quality-adjusted life-years (QALYs) as a function of \code{disprog_} and
-\code{utility_model}. See \code{vignette("expected-values")} for details.
+\code{utility_model}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{IndivCtstm$sim_qalys(
   dr = 0.03,
@@ -231,8 +246,8 @@ as in \verb{$sim()} in \code{\link{StateVals}}.}
 
 \item{\code{lys}}{If \code{TRUE}, then life-years are simulated in addition to QALYs.}
 
-\item{\code{by_patient}}{If \code{TRUE}, then QALYs are computed at the patient level.
-If \code{FALSE}, then QALYs are averaged across patients by health state.}
+\item{\code{by_patient}}{If \code{TRUE}, then QALYs and/or costs are computed at the patient level.
+If \code{FALSE}, then they are averaged across patients by health state.}
 }
 \if{html}{\out{</div>}}
 }
@@ -246,7 +261,6 @@ class \link{qalys} stored in \code{qalys_}.
 \if{latex}{\out{\hypertarget{method-sim_costs}{}}}
 \subsection{Method \code{sim_costs()}}{
 Simulate costs as a function of \code{disprog_} and \code{cost_models}.
-See \code{vignette("expected-values")} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{IndivCtstm$sim_costs(
   dr = 0.03,
@@ -264,8 +278,8 @@ See \code{vignette("expected-values")} for details.
 \item{\code{type}}{\code{"predict"} for mean values or \code{"random"} for random samples
 as in \verb{$sim()} in \code{\link{StateVals}}.}
 
-\item{\code{by_patient}}{If \code{TRUE}, then QALYs are computed at the patient level.
-If \code{FALSE}, then QALYs are averaged across patients by health state.}
+\item{\code{by_patient}}{If \code{TRUE}, then QALYs and/or costs are computed at the patient level.
+If \code{FALSE}, then they are averaged across patients by health state.}
 
 \item{\code{max_t}}{Maximum time duration to compute costs once a patient has
 entered a (new) health state. By default, equal to \code{Inf},

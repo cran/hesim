@@ -14,8 +14,8 @@ library("flexsurv")
 library("ggplot2")
 theme_set(theme_bw())
 
-# Simulation data
-strategies <- data.frame(strategy_id = c(1, 2, 3), 
+# Model setup
+strategies <- data.frame(strategy_id = c(1, 2, 3),
                          strategy_name = paste0("Strategy ", 1:3))
 patients <- data.frame(patient_id = seq(1, 3),
                        age = c(45, 50, 60),
@@ -28,32 +28,32 @@ hesim_dat <- hesim_data(strategies = strategies,
 labs <- c(
   get_labels(hesim_dat),
   list(curve = c("Endpoint 1" = 1,
-                "Endpoint 2" = 2,
+                 "Endpoint 2" = 2,
                  "Endpoint 3" = 3))
 )
 n_samples <- 2
 
 # Survival models
 surv_est_data <- psm4_exdata$survival
-fit1 <- flexsurv::flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ factor(strategy_id),
-                              data = surv_est_data, dist = "exp")
-fit2 <- flexsurv::flexsurvreg(Surv(endpoint2_time, endpoint2_status) ~ factor(strategy_id),
-                              data = surv_est_data, dist = "exp")
-fit3 <- flexsurv::flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ factor(strategy_id),
-                              data = surv_est_data, dist = "exp")
+fit1 <- flexsurvreg(Surv(endpoint1_time, endpoint1_status) ~ factor(strategy_id),
+                    data = surv_est_data, dist = "exp")
+fit2 <- flexsurvreg(Surv(endpoint2_time, endpoint2_status) ~ factor(strategy_id),
+                    data = surv_est_data, dist = "exp")
+fit3 <- flexsurvreg(Surv(endpoint3_time, endpoint3_status) ~ factor(strategy_id),
+                    data = surv_est_data, dist = "exp")
 fits <- flexsurvreg_list(fit1, fit2, fit3)
 
 surv_input_data <- expand(hesim_dat, by = c("strategies", "patients"))
 psm_curves <- create_PsmCurves(fits, input_data = surv_input_data,
-                               uncertainty = "bootstrap", est_data = surv_est_data, 
+                               uncertainty = "bootstrap", est_data = surv_est_data,
                                n = n_samples)
 
 # Cost model(s)
 cost_input_data <- expand(hesim_dat, by = c("strategies", "patients", "states"))
-fit_costs_medical <- stats::lm(costs ~ female + state_name, 
-                               data = psm4_exdata$costs$medical)
-psm_costs_medical <- create_StateVals(fit_costs_medical, 
-                                      input_data = cost_input_data, 
+fit_costs_medical <- lm(costs ~ female + state_name,
+                        data = psm4_exdata$costs$medical)
+psm_costs_medical <- create_StateVals(fit_costs_medical,
+                                      input_data = cost_input_data,
                                       n = n_samples)
 
 # Utility model
@@ -75,10 +75,22 @@ autoplot(psm$stateprobs_, labels = labs)
 psm$sim_costs(dr = .03)
 head(psm$costs_)
 head(psm$sim_qalys(dr = .03)$qalys_)
-
+}
+\references{
+\href{https://arxiv.org/abs/2102.09437}{Incerti and Jansen (2021)}.
+See Section 2.3 for a mathematical description of a PSM and Section 4.2 for an
+example in oncology. The mathematical approach used to simulate costs and QALYs from
+state probabilities is described in Section 2.1.
 }
 \seealso{
-\code{\link{PsmCurves}}, \code{\link[=create_PsmCurves]{create_PsmCurves()}}
+The \code{\link{PsmCurves}} documentation
+describes the class for the survival models and the \code{\link{StateVals}} documentation
+describes the class for the cost and utility models. A \code{\link{PsmCurves}}
+object is typically created using \code{\link[=create_PsmCurves]{create_PsmCurves()}}.
+The \code{\link{PsmCurves}} documentation provides an example in which the model
+is parameterized from parameter objects (i.e., without having the patient-level
+data required to fit a model with \code{R}). A longer example is provided in
+\code{vignette("psm")}.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -126,7 +138,7 @@ by the argument \code{t} in \verb{$sim_curves()}.}
 \subsection{Method \code{new()}}{
 Create a new \code{Psm} object.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Psm$new(survival_models, utility_model = NULL, cost_models = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Psm$new(survival_models = NULL, utility_model = NULL, cost_models = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -189,7 +201,7 @@ stored in \code{stateprobs_}.
 \if{latex}{\out{\hypertarget{method-sim_qalys}{}}}
 \subsection{Method \code{sim_qalys()}}{
 Simulate quality-adjusted life-years (QALYs) as a function of \code{stateprobs_} and
-\code{utility_model}. See \code{vignette("expected-values")} for details.
+\code{utility_model}. See \code{sim_qalys()} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Psm$sim_qalys(
   dr = 0.03,
@@ -203,7 +215,10 @@ Simulate quality-adjusted life-years (QALYs) as a function of \code{stateprobs_}
 \describe{
 \item{\code{dr}}{Discount rate.}
 
-\item{\code{integrate_method}}{Method used to integrate state values when computing (QALYs).}
+\item{\code{integrate_method}}{Method used to integrate state values when computing
+costs or QALYs. Options are \code{trapz} for the trapezoid rule,
+\code{riemann_left} for a left Riemann sum, and
+\code{riemann_right} for a right Riemann sum.}
 
 \item{\code{lys}}{If \code{TRUE}, then life-years are simulated in addition to QALYs.}
 }
@@ -219,7 +234,7 @@ in \code{qalys_}.
 \if{latex}{\out{\hypertarget{method-sim_costs}{}}}
 \subsection{Method \code{sim_costs()}}{
 Simulate costs as a function of \code{stateprobs_} and \code{cost_models}.
-See \code{vignette("expected-values")} for details.
+See \code{sim_costs()} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Psm$sim_costs(
   dr = 0.03,
@@ -232,7 +247,10 @@ See \code{vignette("expected-values")} for details.
 \describe{
 \item{\code{dr}}{Discount rate.}
 
-\item{\code{integrate_method}}{Method used to integrate state values when computing costs.}
+\item{\code{integrate_method}}{Method used to integrate state values when computing
+costs or QALYs. Options are \code{trapz} for the trapezoid rule,
+\code{riemann_left} for a left Riemann sum, and
+\code{riemann_right} for a right Riemann sum.}
 }
 \if{html}{\out{</div>}}
 }

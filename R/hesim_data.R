@@ -12,7 +12,8 @@
 #' \describe{
 #' \item{strategy_id}{Treatment strategy ids.}
 #' \item{line}{Line of therapy.}
-#' \item{treatment_id}{Treatment ID for treatment used at a given line of therapy within a treatment strategy.}
+#' \item{treatment_id}{Treatment ID for treatment used at a given line of therapy 
+#' within a treatment strategy.}
 #' }
 #' @examples 
 #' strategies <- list(c(1, 2, 3),
@@ -80,9 +81,9 @@ create_trans_dt <- function(trans_mat){
 
 #' Data for health economic simulation modeling
 #' 
-#' A list of tables required for health economic simulation modeling.
-#' Each table must either be a `data.frame` or `data.table`. All ID variables within 
-#' each table must be numeric vectors of integers. 
+#' A list of tables required for health economic simulation modeling. This object
+#' is used to setup models by defining the treatment strategies, target population,
+#' and model structure.
 #' @param strategies A table of treatment strategies. Must contain the column 
 #' `strategy_id` denoting a unique strategy. Other columns are variables
 #' describing the characteristics of a treatment strategy. 
@@ -104,6 +105,11 @@ create_trans_dt <- function(trans_mat){
 #' `transition_id`, which denotes a unique transition; `from`, which denotes
 #' the starting health state; and `to` which denotes the state that will be
 #' transitioned to.
+#' 
+#' @note Each table must either be a `data.frame` or `data.table`. All ID variables 
+#' within each table must be numeric vectors of integers and should be of the form
+#' 1,2,...N where N is the number of unique values of the ID variable. 
+#' 
 #' @return Returns an object of class `hesim_data`, which is a list of data tables for
 #' health economic simulation modeling.
 #' @seealso [`expand.hesim_data()`], [`get_labels()`]
@@ -383,14 +389,14 @@ time_intervals <- function(times){
 #' @param patient_wt An optional numeric vector denoting the weight to apply to each patient
 #' within a subgroup. 
 #'  
-#' @details When using the ID variables to index [input_mats], sorting order should be 
-#' the same as specified in [expand.hesim_data()]; that is,
-#' observations must be sorted by: (i) `strategy_id`, (ii) `patient_id`, 
-#' and (iii) the health-related ID variable (either `state_id` or
-#'  `transition_id`). When using ID variables to index transformed parameter 
-#'  objects and `sample` is used for indexing, then observations must be sorted by:
-#'  (i) `sample`, (ii) `strategy_id`, (iii) `patient_id`, and
-#'   (iv) the health-related ID variable. 
+#' @details When using the ID variables to index [input_mats], the sorting order 
+#' should be the same as specified in [expand.hesim_data()]; that is,
+#' observations must be sorted by prioritizing: (i) `strategy_id`, (ii) `patient_id`, 
+#' (iii) the health-related ID variable (either `state_id` or `transition_id`), 
+#' and (iv) `time_id`. When using ID variables are used to index transformed parameter 
+#' objects and `sample` is used for indexing, then observations must be sorted by
+#' prioritizing: (i) `sample`, (ii) `strategy_id`, (iii) `patient_id`,
+#' (iv) the health-related ID variable, and (v) `time_id`. 
 #'   
 #' @seealso [hesim_data()],[expand.hesim_data()], [input_mats]
 #' @export
@@ -535,6 +541,22 @@ get_size <- function(x) {
     n_transitions = y$n_transitions,
     n_times = y$n_times
   ))
+}
+
+make_id_data_table <- function(x) {
+  all_id_vars <- c("sample", "strategy_id", "patient_id", "state_id", 
+                   "transition_id", "time_id")
+  id_vars <- all_id_vars[all_id_vars %in% names(x)] # ID variables used
+  
+  id_dt <- as.data.table(x[id_vars])
+  
+  if ("time_id" %in% colnames(id_dt)) {
+    ti <- x$time_intervals[match(id_dt$time_id, x$time_intervals$time_id)]
+    ti <- ti[, c("time_start", "time_stop"), with = FALSE]
+    id_dt <- cbind(id_dt, ti)
+  }
+  setattr(id_dt, "id_vars", id_vars[id_vars != "sample"])
+  return(id_dt)
 }
 
 # Labels -----------------------------------------------------------------------

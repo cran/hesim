@@ -1,7 +1,7 @@
 Package: hesim
 Type: Package
 Title: Health Economic Simulation Modeling and Decision Analysis
-Version: 0.5.0
+Version: 0.5.1
 Authors@R: c(
     person("Devin", "Incerti", , "devin.incerti@gmail.com", role = c("aut", "cre")),
     person("Jeroen P.", "Jansen", role = "aut"),
@@ -34,14 +34,14 @@ Imports: data.table, flexsurv, ggplot2, MASS, msm, Rcpp (>= 0.12.16),
 Suggests: covr, kableExtra, knitr, magrittr, mstate, nnet, numDeriv,
         pracma, rmarkdown, scales, testthat, truncnorm
 VignetteBuilder: knitr
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 SystemRequirements: C++11
 NeedsCompilation: yes
-Packaged: 2021-02-17 16:56:14 UTC; devin.incerti
+Packaged: 2021-07-25 23:39:14 UTC; devin.incerti
 Author: Devin Incerti [aut, cre],
   Jeroen P. Jansen [aut],
   R Core Team [ctb] (hesim uses some slightly modified C functions from
     base R)
 Maintainer: Devin Incerti <devin.incerti@gmail.com>
 Repository: CRAN
-Date/Publication: 2021-02-17 17:50:02 UTC
+Date/Publication: 2021-07-26 06:00:05 UTC

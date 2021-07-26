@@ -49,7 +49,8 @@ create_IndivCtstmTrans(object, ...)
 )
 }
 \arguments{
-\item{object}{A fitted survival model or the parameters of a survival model.}
+\item{object}{An object of the appropriate class containing either a fitted
+multi-state model or parameters of a multi-state model.}
 
 \item{...}{Further arguments passed to \code{IndivCtstmTrans$new()} in \code{\link{IndivCtstmTrans}}.}
 
@@ -57,15 +58,16 @@ create_IndivCtstmTrans(object, ...)
 \code{\link{expand.hesim_data}}.}
 
 \item{trans_mat}{The transition matrix describing the states and transitions in a
-multi-state model in the format from the \code{\link[mstate:mstate]{mstate}} package. See \code{\link{IndivCtstmTrans}}.}
+multi-state model in the format from the \code{\link[mstate:mstate-package]{mstate}} package. See \code{\link{IndivCtstmTrans}}.}
 
 \item{clock}{"reset" for a clock-reset model, "forward" for a clock-forward model, and "mix" for a mixture
 of clock-reset and clock-forward models. See the field \code{clock} in \code{\link{IndivCtstmTrans}}.}
 
-\item{n}{Number of random observations of the parameters to draw.}
+\item{n}{Number of random observations to draw. Not used if \code{uncertainty = "none"}.}
 
-\item{uncertainty}{Method determining how parameter uncertainty should be handled. See
-documentation in \code{\link[=create_params]{create_params()}}.}
+\item{uncertainty}{Method determining how parameter uncertainty should be handled.
+If \code{"normal"}, then parameters are randomly drawn from their multivariate normal
+distribution. If \code{"none"}, then only point estimates are returned.}
 
 \item{reset_states}{A vector denoting the states in which time resets. See the field
 \code{reset_states} in \code{\link{IndivCtstmTrans}}.}
@@ -76,6 +78,27 @@ Returns an \code{\link{R6Class}} object of class \code{\link{IndivCtstmTrans}}.
 \description{
 A generic function for creating an object of class \code{\link{IndivCtstmTrans}}.
 }
+\details{
+Disease models may either be created from a fitted statistical
+model or from a parameter object. In the case of the former, \code{input_data}
+is a data frame like object that is used to look for variables from
+the statistical model that are required for simulation. In this sense,
+\code{input_data} is very similar to the \code{newdata} argument in most \code{\link[=predict]{predict()}}
+methods (e.g., see \code{\link[=predict.lm]{predict.lm()}}). In other words, variables used in the
+\code{\link{formula}} of the statistical model must also be in \code{input_data}.
+
+In the case of the latter, the columns of \code{input_data} must be named in a
+manner that is consistent with the parameter object. In the typical case
+(e.g., with \code{\link{params_surv}} or \code{\link{params_mlogit}}), the parameter object
+contains coefficients from a regression model, usually stored as matrix
+where rows index parameter samples (i.e., for a probabilistic sensitivity
+analysis) and columns index model terms. In such instances, there must
+be one column from \code{input_data} with the same name as each model term in the
+coefficient matrix; that is, the columns in \code{input_data} are matched with
+the columns of the coefficient matrices by name. If there are model terms
+in the coefficient matrices that are not contained in \code{input_data}, then
+an error will be thrown.
+}
 \seealso{
-\code{\link{IndivCtstmTrans}}
+See \code{\link{IndivCtstmTrans}} and \code{\link{IndivCtstm}} for examples.
 }

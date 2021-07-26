@@ -4,12 +4,22 @@
 \alias{tpmatrix}
 \title{Transition probability matrix}
 \usage{
-tpmatrix(...)
+tpmatrix(..., complement = NULL, states = NULL, prefix = "", sep = "_")
 }
 \arguments{
 \item{...}{Named values of expressions defining elements of the matrix. Each
 element of \code{...} should either be a vector or a 2-dimensional tabular object
 such as a data frame. See "Details" and the examples below.}
+
+\item{complement}{Either a character vector or a numeric vector denoting the
+transitions (i.e., the columns of the tabular object formed from \code{...}) that
+are complementary (see "Details" below). If a character vector, each element
+should be the name of a column in the tabular object; if a numeric vector,
+each element should be the index of a column in the tabular object.}
+
+\item{states, prefix, sep}{Arguments passed to \code{\link[=tpmatrix_names]{tpmatrix_names()}} for naming
+the columns. If \code{states = NULL} (the default), then the states are named
+\code{s1}, ..., \code{sh} where \code{h} is the number of health states.}
 }
 \value{
 Returns a \code{tpmatrix} object that inherits from \code{data.table}
@@ -26,15 +36,13 @@ for simulating health state transitions.
 \details{
 A \code{tpmatrix} is a 2-dimensional tabular object that stores flattened
 square transition probability matrices in each row. Each transition probability
-matrix is filled rowwise. The complementary probability
-(equal to \eqn{1} minus the sum of the probabilities
-of all other elements in a row of a transition probability matrix)
-can be conveniently referred to as \code{C}. There can
-only be one complement for each row in a transition
-probability matrix.
+matrix is filled rowwise. The complementary probability (equal to \eqn{1}
+minus the sum of the probabilities of all other elements in a row of a
+transition probability matrix) can be conveniently referred to as \code{C} or
+specified with the \code{complement} argument. There can only be one complement
+for each row in a transition probability matrix.
 }
 \examples{
-# Pass vectors
 p_12 <- c(.7, .6)
 tpmatrix(
   C, p_12,
@@ -52,7 +60,7 @@ tpmatrix(pmat)
 
 # Pass vectors and data frames
 p1 <- data.frame(
-  p_12 = c(.7, .6), 
+  p_12 = c(.7, .6),
   p_13 = c(.1, .2)
 )
 
@@ -74,9 +82,23 @@ tpmatrix(
   p3
 )
 
+# Use the 'complement' argument
+pmat <- data.frame(s1_s1 = 0, s1_s2 = .5, s2_s1 = .3, s2_s2 = 0)
+tpmatrix(pmat, complement = c("s1_s1", "s2_s2"))
+tpmatrix(pmat, complement = c(1, 4)) # Can also pass integers
+
+# Can control column names
+tpmatrix(pmat, complement = c(1, 4),
+         states = c("state1", "state2"), sep = ".")
 
 }
 \seealso{
-\code{\link[=define_model]{define_model()}}, \code{\link[=define_tparams]{define_tparams()}},
-\code{\link[=tpmatrix_id]{tpmatrix_id()}}, \code{\link[=tparams_transprobs]{tparams_transprobs()}}, \code{\link[=CohortDtstmTrans]{CohortDtstmTrans()}}
+A \code{tpmatrix} is useful because it provides a convenient
+way to construct a \code{\link{tparams_transprobs}} object, which is the object in
+\code{hesim} used to specify the transition probabilities required to simulate
+Markov chains with the \code{\link{CohortDtstmTrans}} class. See the
+\code{\link{tparams_transprobs}} documentation for more details.
+
+The \code{\link[=summary.tpmatrix]{summary.tpmatrix()}} method can be used to summarize a \code{tpmatrix}
+across parameter samples.
 }

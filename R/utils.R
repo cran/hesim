@@ -31,30 +31,40 @@ check_scalar <- function(x, name){
 }
 
 check_dr <- function(dr){
-  if(any(table(dr) > 1)){
+  if(anyDuplicated(dr) != 0L){
     stop("You cannot specify the same discount rate twice.",
          call. = FALSE)
   }  
 }
 
-check.array <- function(coefs){
-  # 'coefs' must be a 3D array (and this has been checked in get_n_samples())
-  
-  # There are currently no other checks
-}
-
-check_StateVals <- function(statevalmods, object, 
+check_StateVals <- function(models, object, 
                             object_name = c("stateprobs", "disprog")) {
   
+  if(!is.list(models)){
+    stop("'models' must be a list", call. = FALSE)
+  }
   object_name <- match.arg(object_name)
   
+  # Generic check for state value model
+  for (i in 1:length(models)){
+    models[[i]]$check()
+  }
+  
+  # Check that state value models have correct size
   if (!is.null(attr(object, "size"))) {
     expected_size <- attr(object, "size")
   } else {
     stop("'size' attribute missing from ", object_name, ".")
   }
   
-  for (i in 1:length(statevalmods)){ # Loop over state value models to check size 
+  ## The expected number of states depends on the number of absorbing states
+  expected_states <- expected_size[["n_states"]]
+  if (!is.null(attr(object, "absorbing"))) {
+    expected_states <- expected_states - length(attr(object, "absorbing"))
+  }
+  
+  ## Loop over models
+  for (i in 1:length(models)){ 
     
     check_size <- function(actual, expected, z = NULL, msg = NULL) {
       if (actual != expected) {
@@ -67,38 +77,54 @@ check_StateVals <- function(statevalmods, object,
       }
     }
     
-    check_size(get_n_samples(statevalmods[[i]]$params),
+    check_size(get_n_samples(models[[i]]$params),
                expected_size[["n_samples"]],
                z = "samples")
-    check_size(get_id_object(statevalmods[[i]])$n_strategies, 
+    check_size(get_id_object(models[[i]])$n_strategies, 
                expected_size[["n_strategies"]],
                z = "strategies")
-    check_size(get_id_object(statevalmods[[i]])$n_patients, 
+    check_size(get_id_object(models[[i]])$n_patients, 
                expected_size[["n_patients"]],
                z = "patients")
     check_size(
-      get_id_object(statevalmods[[i]])$n_states + 1, 
-      expected_size[["n_states"]],
+      get_id_object(models[[i]])$n_states, 
+      expected_states,
       msg = paste0("The number of states in each 'StateVals' model ", 
-                   "must be one less (since state values are not applied to the ",
-                   "death state) than the number of states in the ",
-                   "'", object_name, "' object",
-                   ", which is ", expected_size[["n_states"]], ".")
+                   "must equal the number of states in the ",
+                   "'", object_name, "' object less the number of ",
+                   "absorbing states, which is ", expected_states, ".")
     )
   } # End loop over state value models
 }
 
-# Additional utility methods ---------------------------------------------------
+# Absorbing states -------------------------------------------------------------
 #' Absorbing states
 #' 
-#' Returns a vector of absorbing states from a transition matrix.
-#' @param trans_mat A transition matrix in the format from the [`mstate`][mstate::mstate] package. 
-#' See [`IndivCtstmTrans`].
+#' This is a generic function that returns a vector of absorbing states.
+#' @param x An object of the appropriate class. When `x` is a `matrix`, 
+#' it must be a transition matrix in the format from the 
+#' [`mstate`][mstate::mstate] package (see also [`IndivCtstmTrans`]). 
 #' @keywords internal
-absorbing <- function(trans_mat){
-  which(apply(trans_mat, 1, function(x) all(is.na(x))))
+absorbing <- function(x, ...) {
+  UseMethod("absorbing")
 }
 
+#' @rdname absorbing
+absorbing.matrix <- function(x, ...){
+  which(apply(x, 1, function(z) all(is.na(z))))
+}
+
+#' @rdname absorbing
+absorbing.tparams_transprobs <- function(x, ...){
+  n_states <- ncol(x$value)
+  m <- apply(x$value, c(1, 2), mean)
+  sum_zero <- apply(m, 1, function (z) sum(z == 0))
+  absorbing <- which(sum_zero == (n_states - 1))
+  if (length(absorbing) == 0) absorbing <- NULL
+  absorbing
+}
+
+# Additional utility methods ---------------------------------------------------
 #' Form a list from \code{...}
 #' 
 #' Form a list of objects from \code{...}.
@@ -133,57 +159,6 @@ new_object_list <- function(..., new_class){
 object_list <- function(..., inner_class, new_class){
   res <- new_object_list(..., new_class = new_class)
   check_object_list(res, inner_class)
-}
-
-# Join objects at specified time points
-check_joined_object <- function(x, inner_class, model_list){
-  check_object_list(x$models, inner_class)
-  
-  if(model_list == FALSE){
-     check_joined_times(x$models, x$times)
-  } else {
-    if(!is.list(x$times)){
-      stop("'times' must be a list.", call. = FALSE)
-    }
-    for (i in 1:length(x$times)){
-      check_joined_times(x$models[[i]], x$times[[i]])
-    }
-  } 
-  return(x)
-}
-
-new_joined_object <- function(..., times, new_class){
-  objects <- create_object_list(...)
-  res <- list(models = objects, times = times)
-  class(res) <- new_class
-  return(res)
-}
-
-
-joined_object <- function(..., times, inner_class, new_class, model_list = FALSE){
-  res <- new_joined_object(..., times = times, new_class = new_class)
-  check_joined_object(res, inner_class, model_list)
-}
-
-check_joined_times <- function(objects, times){
-  stopifnot(is.vector(times))
-  stopifnot(is.numeric(times))
-  stopifnot(!is.unsorted(times))
-  if(length(objects) != (length(times) + 1)){
-    stop("Length of joined models must equal 'times' + 1.",
-         call. = FALSE)
-  }
-}
-
-# list to array
-list_to_array <- function(L){
-  if (is.matrix(L[[1]]) == TRUE){
-      array(unlist(L), dim = c(nrow(L[[1]]), ncol(L[[1]]), length(L)))
-  } else if (is.vector(L[[1]]) == TRUE){
-      array(unlist(L), dim = c(1, length(L[[1]]), length(L)))
-  } else{
-      stop("List must contain matrices or vectors")
-  }
 }
 
 # List depth
@@ -282,15 +257,85 @@ format_summary_default <- function(x, pivot_from, id_cols, drop_grp) {
   return(x)
 }
 
-# List of matrices -------------------------------------------------------------
-matlist <- function(x){
-  class(x) <- "matlist"
-  return(x)
+default_colnames <- function(x) {
+  paste0("x", 1:ncol(x))
 }
 
-check.matlist <- function(coefs){
-  # 'coefs' must be a list (and this has been cheked in get_n_samples())
+# Summarize parameter values ---------------------------------------------------
+summarize_params <- function(x, ...) {
+  UseMethod("summarize_params")
+}
+
+summarize_params.numeric <- function(x, probs, param_name = "param",
+                                     param_values, ...) {
+  stats <- as.data.table(t(c(
+    mean = mean(x),
+    sd = stats::sd(x),
+    stats::quantile(x, probs = probs)
+  )))
+  y <- data.table(
+    param = param_values,
+    stats
+  )
+  setnames(y, "param", param_name)
+  y
+}
+
+summarize_params.integer <- function(x, probs, param_name = "param",
+                                     param_values, ...) {
+  summarize_params.numeric(x, probs, param_name, param_values)
+}
+
+summarize_params.matrix <- function(x, probs, param_name = "param",
+                                    param_values = NULL,...) {
   
+  apply_quantile <- function(x, probs) {
+    y <- apply(x, 2, stats::quantile, probs = probs)
+    if (length(probs) == 1) {
+      y <- matrix(y, ncol = 1)
+      colnames(y) <- paste0(probs * 100, "%")
+      return(y)
+    } else{
+      return(t(y))
+    }
+  }
+
+  if (is.null(param_values)) param_values <- colnames(x)
+  x <- data.table(
+    param = param_values,
+    mean = apply(x, 2, mean),
+    sd = apply(x, 2, stats::sd),
+    apply_quantile(x, probs)
+  )
+  setnames(x, "param", param_name)
+  x
+}
+
+summarize_params.data.table <- function(x, probs, param_name = "param",
+                                        param_values = NULL, cols = NULL,...) {
+  
+  if (is.null(cols)) cols <- colnames(x)
+  x <- as.matrix(x)
+  summarize_params.matrix(x, probs = probs, param_name = param_name,
+                          param_values = param_values)
+}  
+
+# List of matrices -------------------------------------------------------------
+coeflist <- function(coefs){
+  if (inherits(coefs, "list")) {
+    coefs <- lapply(coefs, function(x) {
+      x <- as.matrix(x)
+      if (is.null(colnames(x))) colnames(x) <- default_colnames(x)
+      x
+    })
+  } else {
+    stop("'coefs' must be a list.", call. = FALSE)
+  }
+  class(coefs) <- "coeflist"
+  return(coefs)
+}
+
+check.coeflist <- function(coefs){
   # Each element of 'coefs' must be a matrix
   matrix_bool <- unlist(lapply(coefs, is.matrix))
   if(sum(!matrix_bool) > 0){
@@ -321,7 +366,7 @@ get_n_samples.default <- function(x) {
   }
 } 
 
-get_n_samples.matlist <- function(x){
+get_n_samples.coeflist <- function(x){
   stopifnot(is.list(x))
   if (!is.matrix(x[[1]])){
     stop("'coefs' must be a list of matrices.", call. = FALSE)
