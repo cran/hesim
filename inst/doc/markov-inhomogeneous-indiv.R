@@ -113,11 +113,11 @@ omrRTHR_shape2 <- 96
 n_samples <- 500
 
 ## -----------------------------------------------------------------------------
-matrixv <- function(v, n = NULL){
+vec_to_dt <- function(v, n = NULL){
   if (length(v) == 1) v <- rep(v, n_samples) 
-  m <- matrix(v)
-  colnames(m) <- "cons"
-  return(m)
+  dt <- data.table(v)
+  colnames(dt) <- "cons"
+  return(dt)
 }
 
 ## -----------------------------------------------------------------------------
@@ -126,30 +126,39 @@ transmod_coef_def <- define_rng({
                                    shape2 = omrPTHR_shape2))
   mr <- fixed(mr)
   mr_omrPTHR <- omrPTHR + mr
+  colnames(mr) <- colnames(mr_omrPTHR) <- paste0("time_", mr_times)
   rr <- multi_normal_rng(mu = rr_coef, Sigma = rr_vcov)
   rrr <- prob_to_rate(beta_rng(shape1 = 4, shape2 = 96))
   
   list(
-    log_omrPTHR = matrixv(log(omrPTHR)),
-    log_mr = lapply(as.list(log(mr)), matrixv),
-    log_ttrrPTHR = matrixv(log(ttrrPTHR)),
-    log_mr_omrPTHR = lapply(as.list(log(mr_omrPTHR)), matrixv),
-    rr_shape = matrixv(rr$lngamma),
-    rr_scale = as.matrix(rr[, -1,]),
-    log_rrr = matrixv(log(rrr))
+    log_omrPTHR = vec_to_dt(log(omrPTHR)),
+    log_mr = log(mr),
+    log_ttrrPTHR = vec_to_dt(log(ttrrPTHR)),
+    log_mr_omrPTHR = log(mr_omrPTHR),
+    rr_shape = vec_to_dt(rr$lngamma),
+    rr_scale = rr[, -1,],
+    log_rrr = vec_to_dt(log(rrr))
   )
 }, n = n_samples)
 transmod_coef <- eval_rng(transmod_coef_def)
+
+## -----------------------------------------------------------------------------
+summary(transmod_coef)
 
 ## -----------------------------------------------------------------------------
 head(transmod_coef$log_omrPTHR)
 head(transmod_coef$rr_scale)
 
 ## -----------------------------------------------------------------------------
+as_dt_list <- function(x) {
+  lapply(as.list(x), vec_to_dt)
+}
+
+## -----------------------------------------------------------------------------
 transmod_params <- params_surv_list(
   # 1. Primary THR:Successful primary (1:2)
   params_surv(coefs = list(rate = transmod_coef$log_ttrrPTHR), 
-              dist = "fixed"),
+              dist = "exp"),
   
   # 2. Primary THR:Death (1:5)
   params_surv(coefs = list(rate = transmod_coef$log_omrPTHR), 
@@ -161,16 +170,16 @@ transmod_params <- params_surv_list(
               dist = "weibullPH"), 
   
   # 4. Successful primary:Death (2:5)
-  params_surv(coefs = transmod_coef$log_mr,
+  params_surv(coefs = as_dt_list(transmod_coef$log_mr),
               aux = list(time = c(0, 5, 15, 25)),
               dist = "pwexp"),
   
   # 5. Revision THR:Successful revision (3:4)
-  params_surv(coefs = list(est = matrixv(ttrRTHR)),
+  params_surv(coefs = list(est = vec_to_dt(ttrRTHR)),
               dist = "fixed"),
   
   # 6. Revision THR:Death (3:5)
-  params_surv(coefs = transmod_coef$log_mr_omrPTHR,
+  params_surv(coefs = as_dt_list(transmod_coef$log_mr_omrPTHR),
               aux = list(time = c(0, 5, 15, 25)),
               dist = "pwexp"),
 
@@ -179,7 +188,7 @@ transmod_params <- params_surv_list(
               dist = "exp"), 
   
   # 8. Successful revision:Death (4:5)
-  params_surv(coefs = transmod_coef$log_mr,
+  params_surv(coefs = as_dt_list(transmod_coef$log_mr),
               aux = list(time = c(0, 5, 15, 25)),
               dist = "pwexp")
 )
@@ -308,10 +317,10 @@ icer(cea_pw_out, labels = labs) %>%
 #    mr_omrPTHR <- multi_normal_rng(mu = fit_mort2_wei$res.t[, "est"],
 #                                   Sigma = vcov(fit_mort2_wei))
 #    list(
-#      mr_shape = matrixv(mr$shape),
-#      mr_scale = matrixv(mr$scale),
-#      mr_omrPTHR_shape = matrixv(mr_omrPTHR$shape),
-#      mr_omrPTHR_scale = matrixv(mr_omrPTHR$scale)
+#      mr_shape = vec_to_dt(mr$shape),
+#      mr_scale = vec_to_dt(mr$scale),
+#      mr_omrPTHR_shape = vec_to_dt(mr_omrPTHR$shape),
+#      mr_omrPTHR_scale = vec_to_dt(mr_omrPTHR$scale)
 #    )
 #  }, n = n_samples)
 #  transmod_coef2 <- eval_rng(transmod_coef2)
