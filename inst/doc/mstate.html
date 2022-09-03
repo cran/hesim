@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2022-03-30" />
+<meta name="date" content="2022-09-03" />
 
 <title>Markov and semi-Markov multi-state models</title>
 
@@ -333,27 +333,25 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Markov and semi-Markov multi-state
 models</h1>
-<h4 class="date">2022-03-30</h4>
+<h4 class="date">2022-09-03</h4>
 
 
 <div id="TOC">
 <ul>
-<li><a href="#overview"><span class="toc-section-number">1</span>
-Overview</a></li>
-<li><a href="#an-example-3-state-model"><span class="toc-section-number">2</span> An example 3-state model</a></li>
-<li><a href="#parameter-estimation"><span class="toc-section-number">3</span> Parameter estimation</a>
+<li><a href="#overview" id="toc-overview"><span class="toc-section-number">1</span> Overview</a></li>
+<li><a href="#an-example-3-state-model" id="toc-an-example-3-state-model"><span class="toc-section-number">2</span> An example 3-state model</a></li>
+<li><a href="#parameter-estimation" id="toc-parameter-estimation"><span class="toc-section-number">3</span> Parameter estimation</a>
 <ul>
-<li><a href="#multi-state-model"><span class="toc-section-number">3.1</span> Multi-state model</a></li>
-<li><a href="#utility-and-costs"><span class="toc-section-number">3.2</span> Utility and costs</a></li>
+<li><a href="#multi-state-model" id="toc-multi-state-model"><span class="toc-section-number">3.1</span> Multi-state model</a></li>
+<li><a href="#utility-and-costs" id="toc-utility-and-costs"><span class="toc-section-number">3.2</span> Utility and costs</a></li>
 </ul></li>
-<li><a href="#simulation"><span class="toc-section-number">4</span>
-Simulation</a>
+<li><a href="#simulation" id="toc-simulation"><span class="toc-section-number">4</span> Simulation</a>
 <ul>
-<li><a href="#constructing-the-economic-model"><span class="toc-section-number">4.1</span> Constructing the economic
+<li><a href="#constructing-the-economic-model" id="toc-constructing-the-economic-model"><span class="toc-section-number">4.1</span> Constructing the economic
 model</a></li>
-<li><a href="#simulating-outcomes"><span class="toc-section-number">4.2</span> Simulating outcomes</a></li>
+<li><a href="#simulating-outcomes" id="toc-simulating-outcomes"><span class="toc-section-number">4.2</span> Simulating outcomes</a></li>
 </ul></li>
-<li><a href="#decision-analysis"><span class="toc-section-number">5</span> Decision analysis</a></li>
+<li><a href="#decision-analysis" id="toc-decision-analysis"><span class="toc-section-number">5</span> Decision analysis</a></li>
 </ul>
 </div>
 
@@ -718,7 +716,7 @@ discounted at 3%.</p>
 <pre><code>##    sample strategy_id grp_id state_id dr     qalys      lys
 ## 1:      1           1      1        1  0 4.7558673 6.512795
 ## 2:      1           1      1        2  0 0.8202590 1.514267
-## 3:      1           2      1        1  0 7.2823134 9.972569
+## 3:      1           2      1        1  0 7.2823133 9.972569
 ## 4:      1           2      1        2  0 0.6533696 1.206175
 ## 5:      2           1      1        1  0 4.8856425 7.053733
 ## 6:      2           1      1        2  0 1.4581737 1.467082</code></pre>
@@ -743,7 +741,7 @@ rate.</p>
 <pre><code>##    sample strategy_id grp_id state_id   dr category     costs
 ## 1:      1           1      1        1 0.03     Drug 25959.396
 ## 2:      1           1      1        2 0.03     Drug  6063.175
-## 3:      1           2      1        1 0.03     Drug 73387.049
+## 3:      1           2      1        1 0.03     Drug 73387.048
 ## 4:      1           2      1        2 0.03     Drug  9161.516
 ## 5:      2           1      1        1 0.03     Drug 27762.581
 ## 6:      2           1      1        2 0.03     Drug  5866.703</code></pre>
