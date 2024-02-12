@@ -392,6 +392,7 @@ sim_ev <- function (object, ...) {
   UseMethod("sim_ev", object)
 }
 
+#' @export
 sim_ev.NULL <- function(object, ...) {
   if (is.null(object)) {
     stop("You must first simulate state probabilities using '$sim_stateprobs'.",
@@ -663,9 +664,9 @@ sim_costs <- function(object, models, dr = .03,
 #' 
 #' @format 
 #' A list containing two elements:
-#' \itemize{
-#' \item{`costs`}{ Total (discounted) costs by category.}
-#' \item{`qalys`}{ (Discounted) quality-adjusted life-years.}
+#' \describe{
+#' \item{`costs`}{Total (discounted) costs by category.}
+#' \item{`qalys`}{(Discounted) quality-adjusted life-years.}
 #' }
 #' 
 #' @section Costs:

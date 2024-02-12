@@ -1,7 +1,7 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 ggplot2::theme_set(ggplot2::theme_bw())
 
-## ---- out.width = "500px", echo = FALSE---------------------------------------
+## ----out.width = "500px", echo = FALSE----------------------------------------
 knitr::include_graphics("reversible-illness-death.png")
 
 ## -----------------------------------------------------------------------------
@@ -11,7 +11,7 @@ tmat <- rbind(c(NA, 1, 2),
 colnames(tmat) <- rownames(tmat) <- c("Healthy", "Sick", "Death")
 print(tmat)
 
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("hesim")
 library("data.table")
 strategies <- data.table(strategy_id = c(1, 2),
@@ -34,7 +34,7 @@ labs$transition_id <- c("Healthy-> Sick" = 1,
                         "Sick -> Death" = 4)
 print(labs)
 
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("flexsurv")
 n_trans <- max(tmat, na.rm = TRUE) # Number of transitions
 wei_fits_cr <- vector(length = n_trans, mode = "list") 
@@ -139,7 +139,7 @@ econmod_cf <- IndivCtstm$new(trans_model = transmod_cf,
                              utility_model = utilitymod,
                              cost_models = costmods)
 
-## ---- cache = FALSE-----------------------------------------------------------
+## ----cache = FALSE------------------------------------------------------------
 # "Clock reset"
 econmod_cr$sim_disease()
 head(econmod_cr$disprog_)

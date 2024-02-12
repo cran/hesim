@@ -1,11 +1,11 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 library("ggplot2")
 theme_set(theme_bw())
 
-## ---- out.width = "700px", echo = FALSE---------------------------------------
+## ----out.width = "700px", echo = FALSE----------------------------------------
 knitr::include_graphics("markov-cohort.png")
 
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("hesim")
 library("data.table")
 strategies <- data.table(strategy_id = 1:2,

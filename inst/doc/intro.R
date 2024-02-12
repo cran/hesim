@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 library("knitr")
 opts_chunk$set(cache = TRUE)
 
@@ -12,7 +12,7 @@ colnames(tbl) <- c("Economic model", "R6 class")
 knitr::kable(tbl, row.names = FALSE)  %>% # Pipe imported from kableExtra
   kableExtra::kable_styling()
 
-## ---- out.width = "600px", echo = FALSE---------------------------------------
+## ----out.width = "600px", echo = FALSE----------------------------------------
 knitr::include_graphics("econ-eval-process-hesim.png")
 
 ## ----warning = FALSE, message = FALSE-----------------------------------------
@@ -83,7 +83,7 @@ knitr::kable(tbl, row.names = FALSE) %>%
   kableExtra::kable_styling() %>%
   kableExtra::collapse_rows(columns = 1, valign = "top")
 
-## ---- message = FALSE, warning = FALSE----------------------------------------
+## ----message = FALSE, warning = FALSE-----------------------------------------
 library("flexsurv")
 mstate_data <- data.table(mstate3_exdata$transitions)
 mstate_data[, trans := factor(trans)]

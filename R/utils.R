@@ -3,8 +3,6 @@
 #' 
 #' \code{check} is a generic function for validating the inputs of class objects.
 #' @param object object to check.
-#' @param inner_class When checking a list of objects, the class of elements within
-#' the inner most list.
 #' @param ... Further arguments passed to or from other methods.
 #' 
 #' @return If validation is successful, returns the object in question; otherwise,
@@ -335,7 +333,8 @@ coeflist <- function(coefs){
   return(coefs)
 }
 
-check.coeflist <- function(coefs){
+check.coeflist <- function(object, ...){
+  coefs = object
   # Each element of 'coefs' must be a matrix
   matrix_bool <- unlist(lapply(coefs, is.matrix))
   if(sum(!matrix_bool) > 0){

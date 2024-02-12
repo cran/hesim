@@ -1,7 +1,7 @@
-## ---- out.width = "700px", echo = FALSE---------------------------------------
+## ----out.width = "700px", echo = FALSE----------------------------------------
 knitr::include_graphics("markov-inhomogeneous.png")
 
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("hesim")
 library("data.table")
 
@@ -36,7 +36,7 @@ print(hesim_dat)
 labs <- get_labels(hesim_dat)
 print(labs)
 
-## ---- echo = FALSE------------------------------------------------------------
+## ----echo = FALSE-------------------------------------------------------------
 library("kableExtra")
 tpmat <- matrix(
   c(0, "C", 0, 0, "omrPTHR",
@@ -50,7 +50,7 @@ colnames(tpmat) <- rownames(tpmat) <- names(labs$state_id)
 knitr::kable(tpmat) %>%
   kable_styling()
 
-## ---- echo = FALSE------------------------------------------------------------
+## ----echo = FALSE-------------------------------------------------------------
 mort_tbl <- rbind(
   c(35, 45, .00151, .00099),
   c(45, 55, .00393, .0026),
@@ -65,7 +65,7 @@ mort_tbl <- data.frame(mort_tbl)
 ## -----------------------------------------------------------------------------
 print(mort_tbl)
 
-## ---- echo = FALSE------------------------------------------------------------
+## ----echo = FALSE-------------------------------------------------------------
 # Coefficients
 rr_coef <- c(0.3740968, -5.490935, -0.0367022, 0.768536, -1.344474)
 names(rr_coef) <- c("lngamma", "cons", "age", "male", "np1")
@@ -275,7 +275,7 @@ x_rr <- as.matrix(tpmatrix_data[, .(cons, age, male, np1)])
 head(x_cons)
 head(x_rr)
 
-## ---- echo = FALSE------------------------------------------------------------
+## ----echo = FALSE-------------------------------------------------------------
 mort_tbl2 <- melt(data.table(mort_tbl), 
                   id.vars = c("age_lower", "age_upper"),
                   variable.name = "sex", value.name = "rate",
@@ -345,7 +345,7 @@ ce_sim <- econmod$summarize(by_grp = TRUE)
 summary(ce_sim, labels = labs)[grp == 2] %>%
   format()
 
-## ---- hide = TRUE-------------------------------------------------------------
+## ----hide = TRUE--------------------------------------------------------------
 data.table(
   Method = c("define_model()", "Custom tpmatrix()"),
   rbind(

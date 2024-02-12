@@ -1,7 +1,7 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 ggplot2::theme_set(ggplot2::theme_bw())
 
-## ---- out.width = "500px", echo = FALSE---------------------------------------
+## ----out.width = "500px", echo = FALSE----------------------------------------
 knitr::include_graphics("illness-death.png")
 
 ## -----------------------------------------------------------------------------
@@ -11,7 +11,7 @@ tmat <- rbind(c(0, 1, 2),
 colnames(tmat) <- rownames(tmat) <- c("Healthy", "Sick", "Death")
 print(tmat)
 
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("hesim")
 library("data.table")
 transitions_data <- data.table(multinom3_exdata$transitions)

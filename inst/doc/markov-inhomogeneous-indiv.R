@@ -1,14 +1,14 @@
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 library("hesim")
 library("data.table")
 library("kableExtra")
 library("flexsurv")
 library("ggplot2")
 
-## ---- out.width = "700px", echo = FALSE---------------------------------------
+## ----out.width = "700px", echo = FALSE----------------------------------------
 knitr::include_graphics("markov-inhomogeneous.png")
 
-## ---- warning = FALSE, message = FALSE----------------------------------------
+## ----warning = FALSE, message = FALSE-----------------------------------------
 # Treatment strategies
 strategies <- data.table(
   strategy_id = 1:2,
@@ -66,7 +66,7 @@ prob_to_rate <- function(p, t = 1){
   (-log(1 - p))/t
 }
 
-## ---- include = FALSE, results = "hide"---------------------------------------
+## ----include = FALSE, results = "hide"----------------------------------------
 rr_coef <- c(0.3740968, -5.490935, -0.0367022, 0.768536, -1.344474)
 names(rr_coef) <- c("lngamma", "cons", "age", "male", "np1")
 
@@ -85,7 +85,7 @@ rownames(rr_vcov) <- colnames(rr_vcov) <- names(rr_coef)
 print(rr_coef)
 print(rr_vcov)
 
-## ---- echo = FALSE------------------------------------------------------------
+## ----echo = FALSE-------------------------------------------------------------
 mort_tbl <- rbind(
   c(35, 45, .00151, .00099),
   c(45, 55, .00393, .0026),
@@ -262,7 +262,7 @@ head(econmod$disprog_)
 ## -----------------------------------------------------------------------------
 econmod$sim_stateprobs(t = 0:60)
 
-## ---- echo = FALSE, fig.width = 7, fig.height = 4-----------------------------
+## ----echo = FALSE, fig.width = 7, fig.height = 4------------------------------
 mean_stateprobs <- econmod$stateprobs_[, .(prob_mean = mean(prob)),
                                        by = c("strategy_id", "state_id", "t")]
 mean_stateprobs[, state_name := factor(state_id,
@@ -291,7 +291,7 @@ cea_pw_out <- cea_pw(ce_sim, comparator = 1, dr_qalys = 0.015, dr_costs = .06,
 icer(cea_pw_out, labels = labs) %>%
   format(digits_qalys = 3)
 
-## ---- eval = FALSE, echo = FALSE----------------------------------------------
+## ----eval = FALSE, echo = FALSE-----------------------------------------------
 #  # Rather than use a piecewise exponential distribution, approximate
 #  # mortality rates with a Weibull distribution
 #  fit_from_pwexp <- function(n = 10000, rate, time = mr_times){
