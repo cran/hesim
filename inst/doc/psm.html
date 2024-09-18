@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2024-02-11" />
+<meta name="date" content="2024-09-18" />
 
 <title>Partitioned survival models</title>
 
@@ -50,7 +50,7 @@ overflow: visible;
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -338,7 +338,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 <h1 class="title toc-ignore">Partitioned survival models</h1>
-<h4 class="date">2024-02-11</h4>
+<h4 class="date">2024-09-18</h4>
 
 
 <div id="TOC">
@@ -445,15 +445,17 @@ using <code>hesim_data()</code>, which creates a general object of class
 <span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="fu">print</span>(hesim_dat)</span></code></pre></div>
 <pre><code>## $strategies
 ##    strategy_id strategy_name
+##          &lt;num&gt;        &lt;char&gt;
 ## 1:           1    Strategy 1
 ## 2:           2    Strategy 2
 ## 3:           3    Strategy 3
 ## 
 ## $patients
-##    patient_id age female
-## 1:          1  45      0
-## 2:          2  50      0
-## 3:          3  60      1
+##    patient_id   age female
+##         &lt;int&gt; &lt;num&gt;  &lt;num&gt;
+## 1:          1    45      0
+## 2:          2    50      0
+## 3:          3    60      1
 ## 
 ## $states
 ##   state_id                  state_name
@@ -628,13 +630,14 @@ using <code>autoplot.survival()</code>.</p>
 <span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>times <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">12</span>, <span class="at">by =</span> .<span class="dv">1</span>)</span>
 <span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>psm<span class="sc">$</span><span class="fu">sim_survival</span>(<span class="at">t =</span> times)</span>
 <span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="fu">head</span>(psm<span class="sc">$</span>survival_)</span></code></pre></div>
-<pre><code>##    sample strategy_id patient_id grp_id curve   t  survival
-## 1:      1           1          1      1     1 0.0 1.0000000
-## 2:      1           1          1      1     1 0.1 0.9189061
-## 3:      1           1          1      1     1 0.2 0.8411512
-## 4:      1           1          1      1     1 0.3 0.7688137
-## 5:      1           1          1      1     1 0.4 0.7019982
-## 6:      1           1          1      1     1 0.5 0.6405107</code></pre>
+<pre><code>##    sample strategy_id patient_id grp_id curve     t  survival
+##     &lt;num&gt;       &lt;int&gt;      &lt;int&gt;  &lt;int&gt; &lt;num&gt; &lt;num&gt;     &lt;num&gt;
+## 1:      1           1          1      1     1   0.0 1.0000000
+## 2:      1           1          1      1     1   0.1 0.9189061
+## 3:      1           1          1      1     1   0.2 0.8411512
+## 4:      1           1          1      1     1   0.3 0.7688137
+## 5:      1           1          1      1     1   0.4 0.7019982
+## 6:      1           1          1      1     1   0.5 0.6405107</code></pre>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># Plot</span></span>
 <span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;ggplot2&quot;</span>)</span>
 <span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>labs<span class="sc">$</span>curve <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Curve 1&quot;</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">&quot;Curve 2&quot;</span> <span class="ot">=</span> <span class="dv">2</span>, <span class="st">&quot;Curve 3&quot;</span> <span class="ot">=</span> <span class="dv">3</span>)</span>
@@ -664,13 +667,14 @@ randomly sampled parameter set.</p>
 <div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co"># Simulate</span></span>
 <span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>psm<span class="sc">$</span><span class="fu">sim_stateprobs</span>()</span>
 <span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="fu">head</span>(psm<span class="sc">$</span>stateprobs_)</span></code></pre></div>
-<pre><code>##    sample strategy_id patient_id grp_id state_id   t      prob
-## 1:      1           1          1      1        1 0.0 1.0000000
-## 2:      1           1          1      1        1 0.1 0.9189061
-## 3:      1           1          1      1        1 0.2 0.8411512
-## 4:      1           1          1      1        1 0.3 0.7688137
-## 5:      1           1          1      1        1 0.4 0.7019982
-## 6:      1           1          1      1        1 0.5 0.6405107</code></pre>
+<pre><code>##    sample strategy_id patient_id grp_id state_id     t      prob
+##     &lt;num&gt;       &lt;int&gt;      &lt;int&gt;  &lt;int&gt;    &lt;int&gt; &lt;num&gt;     &lt;num&gt;
+## 1:      1           1          1      1        1   0.0 1.0000000
+## 2:      1           1          1      1        1   0.1 0.9189061
+## 3:      1           1          1      1        1   0.2 0.8411512
+## 4:      1           1          1      1        1   0.3 0.7688137
+## 5:      1           1          1      1        1   0.4 0.7019982
+## 6:      1           1          1      1        1   0.5 0.6405107</code></pre>
 <div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="co"># Plot</span></span>
 <span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>stateprobs <span class="ot">&lt;-</span> psm<span class="sc">$</span>stateprobs_[sample <span class="sc">==</span> <span class="dv">30</span> <span class="sc">&amp;</span> patient_id <span class="sc">==</span> <span class="dv">1</span>]</span>
 <span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>stateprobs[, state <span class="sc">:=</span> <span class="fu">factor</span>(state_id, </span>
@@ -700,23 +704,25 @@ strategy, patient, health state, and sampled parameter set.</p>
 <div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co"># Costs</span></span>
 <span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>psm<span class="sc">$</span><span class="fu">sim_costs</span>(<span class="at">dr =</span> .<span class="dv">03</span>)</span>
 <span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a><span class="fu">head</span>(psm<span class="sc">$</span>costs_)</span></code></pre></div>
-<pre><code>##    sample strategy_id patient_id grp_id state_id   dr category    costs
-## 1:      1           1          1      1        1 0.03  medical 28707.06
-## 2:      1           1          1      1        2 0.03  medical 24729.36
-## 3:      1           1          1      1        3 0.03  medical 24914.92
-## 4:      1           1          2      1        1 0.03  medical 27384.46
-## 5:      1           1          2      1        2 0.03  medical 23700.48
-## 6:      1           1          2      1        3 0.03  medical 23230.48</code></pre>
+<pre><code>##    sample strategy_id patient_id grp_id state_id    dr category    costs
+##     &lt;num&gt;       &lt;int&gt;      &lt;int&gt;  &lt;int&gt;    &lt;int&gt; &lt;num&gt;   &lt;char&gt;    &lt;num&gt;
+## 1:      1           1          1      1        1  0.03  medical 28707.06
+## 2:      1           1          1      1        2  0.03  medical 24729.36
+## 3:      1           1          1      1        3  0.03  medical 24914.92
+## 4:      1           1          2      1        1  0.03  medical 27384.46
+## 5:      1           1          2      1        2  0.03  medical 23700.48
+## 6:      1           1          2      1        3  0.03  medical 23230.48</code></pre>
 <div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="co"># QALYs</span></span>
 <span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a>psm<span class="sc">$</span><span class="fu">sim_qalys</span>(<span class="at">dr =</span> .<span class="dv">03</span>)</span>
 <span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="fu">head</span>(psm<span class="sc">$</span>qalys_)</span></code></pre></div>
-<pre><code>##    sample strategy_id patient_id grp_id state_id   dr     qalys       lys
-## 1:      1           1          1      1        1 0.03 0.8913423 1.0479377
-## 2:      1           1          1      1        2 0.03 0.5448242 0.7391230
-## 3:      1           1          1      1        3 0.03 0.5277850 0.7778092
-## 4:      1           1          2      1        1 0.03 0.8502762 0.9996569
-## 5:      1           1          2      1        2 0.03 0.5221563 0.7083712
-## 6:      1           1          2      1        3 0.03 0.4921027 0.7252234</code></pre>
+<pre><code>##    sample strategy_id patient_id grp_id state_id    dr     qalys       lys
+##     &lt;num&gt;       &lt;int&gt;      &lt;int&gt;  &lt;int&gt;    &lt;int&gt; &lt;num&gt;     &lt;num&gt;     &lt;num&gt;
+## 1:      1           1          1      1        1  0.03 0.8913423 1.0479377
+## 2:      1           1          1      1        2  0.03 0.5448242 0.7391230
+## 3:      1           1          1      1        3  0.03 0.5277850 0.7778092
+## 4:      1           1          2      1        1  0.03 0.8502762 0.9996569
+## 5:      1           1          2      1        2  0.03 0.5221563 0.7083712
+## 6:      1           1          2      1        3  0.03 0.4921027 0.7252234</code></pre>
 </div>
 </div>
 </div>

@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2024-02-11" />
+<meta name="date" content="2024-09-18" />
 
 <title>Time inhomogeneous Markov cohort models</title>
 
@@ -274,7 +274,7 @@ overflow: visible;
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -563,7 +563,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Time inhomogeneous Markov cohort
 models</h1>
-<h4 class="date">2024-02-11</h4>
+<h4 class="date">2024-09-18</h4>
 
 
 <div id="TOC">
@@ -659,24 +659,27 @@ defined by age and sex.</p>
 <span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a><span class="fu">print</span>(hesim_dat)</span></code></pre></div>
 <pre><code>## $strategies
 ##    strategy_id       strategy_name
+##          &lt;int&gt;              &lt;char&gt;
 ## 1:           1 Standard prosthesis
 ## 2:           2      New prosthesis
 ## 
 ## $patients
-##     patient_id grp_id    sex age patient_wt
-##  1:          1      1 Female  55     0.0325
-##  2:          2      2 Female  60     0.0650
-##  3:          3      3 Female  65     0.2600
-##  4:          4      4 Female  70     0.1625
-##  5:          5      5 Female  75     0.1300
-##  6:          6      6   Male  55     0.0175
-##  7:          7      7   Male  60     0.0350
-##  8:          8      8   Male  65     0.1400
-##  9:          9      9   Male  70     0.0875
-## 10:         10     10   Male  75     0.0700
+##     patient_id grp_id    sex   age patient_wt
+##          &lt;int&gt;  &lt;int&gt; &lt;char&gt; &lt;num&gt;      &lt;num&gt;
+##  1:          1      1 Female    55     0.0325
+##  2:          2      2 Female    60     0.0650
+##  3:          3      3 Female    65     0.2600
+##  4:          4      4 Female    70     0.1625
+##  5:          5      5 Female    75     0.1300
+##  6:          6      6   Male    55     0.0175
+##  7:          7      7   Male    60     0.0350
+##  8:          8      8   Male    65     0.1400
+##  9:          9      9   Male    70     0.0875
+## 10:         10     10   Male    75     0.0700
 ## 
 ## $states
 ##    state_id          state_name
+##       &lt;int&gt;              &lt;char&gt;
 ## 1:        1         Primary THR
 ## 2:        2  Successful primary
 ## 3:        3        Revision THR
@@ -991,13 +994,14 @@ data, which consists of all treatment strategy and patient
 combinations.</p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>input_data <span class="ot">&lt;-</span> <span class="fu">expand</span>(hesim_dat, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;strategies&quot;</span>, <span class="st">&quot;patients&quot;</span>))</span>
 <span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">head</span>(input_data)</span></code></pre></div>
-<pre><code>##    strategy_id patient_id       strategy_name grp_id    sex age patient_wt
-## 1:           1          1 Standard prosthesis      1 Female  55     0.0325
-## 2:           1          2 Standard prosthesis      2 Female  60     0.0650
-## 3:           1          3 Standard prosthesis      3 Female  65     0.2600
-## 4:           1          4 Standard prosthesis      4 Female  70     0.1625
-## 5:           1          5 Standard prosthesis      5 Female  75     0.1300
-## 6:           1          6 Standard prosthesis      6   Male  55     0.0175</code></pre>
+<pre><code>##    strategy_id patient_id       strategy_name grp_id    sex   age patient_wt
+##          &lt;int&gt;      &lt;int&gt;              &lt;char&gt;  &lt;int&gt; &lt;char&gt; &lt;num&gt;      &lt;num&gt;
+## 1:           1          1 Standard prosthesis      1 Female    55     0.0325
+## 2:           1          2 Standard prosthesis      2 Female    60     0.0650
+## 3:           1          3 Standard prosthesis      3 Female    65     0.2600
+## 4:           1          4 Standard prosthesis      4 Female    70     0.1625
+## 5:           1          5 Standard prosthesis      5 Female    75     0.1300
+## 6:           1          6 Standard prosthesis      6   Male    55     0.0175</code></pre>
 <p>When evaluating the <code>define_tparams()</code> expression,
 operations are vectorized and performed for each combination of the
 sampled parameters, input data, and time periods. The model will be
@@ -1135,6 +1139,7 @@ consistent with those from the textbook.</p>
 <span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a><span class="fu">summary</span>(ce_sim, <span class="at">labels =</span> labs)[grp <span class="sc">==</span> <span class="dv">2</span>] <span class="sc">%&gt;%</span></span>
 <span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a>  <span class="fu">format</span>()</span></code></pre></div>
 <pre><code>##    Discount rate           Outcome  Standard prosthesis       New prosthesis
+##            &lt;num&gt;            &lt;fctr&gt;               &lt;char&gt;               &lt;char&gt;
 ## 1:         0.015             QALYs 14.59 (13.55, 15.55) 14.63 (13.61, 15.60)
 ## 2:         0.060 Costs: prosthesis       394 (394, 394)       579 (579, 579)
 ## 3:         0.060    Costs: medical        118 (52, 223)          34 (10, 79)
@@ -1145,7 +1150,9 @@ the the revision rate for prostheses (<em>rr</em>) depends on
 covariates.</p>
 <div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">icer</span>(cea_pw_out) <span class="sc">%&gt;%</span></span>
 <span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>  <span class="fu">format</span>(<span class="at">pivot_from =</span> <span class="st">&quot;outcome&quot;</span>)</span></code></pre></div>
-<pre><code>##     Group Strategy Incremental QALYs Incremental costs       Incremental NMB
+<pre><code>## Key: &lt;Group, Strategy&gt;
+##     Group Strategy Incremental QALYs Incremental costs       Incremental NMB
+##     &lt;int&gt;    &lt;int&gt;            &lt;char&gt;            &lt;char&gt;                &lt;char&gt;
 ##  1:     1        2 0.07 (0.03, 0.13)     68 (-46, 140)  3,384 (1,144, 6,384)
 ##  2:     2        2 0.04 (0.02, 0.08)     101 (21, 153)    2,035 (656, 3,982)
 ##  3:     3        2 0.03 (0.01, 0.05)     126 (68, 163)    1,149 (333, 2,381)
@@ -1157,6 +1164,7 @@ covariates.</p>
 ##  9:     9        2 0.02 (0.01, 0.04)     116 (49, 160)    1,013 (307, 2,141)
 ## 10:    10        2 0.01 (0.01, 0.03)     141 (95, 170)       490 (98, 1,158)
 ##          ICER
+##        &lt;char&gt;
 ##  1:       981
 ##  2:     2,359
 ##  3:     4,956
@@ -1181,6 +1189,7 @@ the input data.</p>
 <span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a><span class="fu">icer</span>(cea_pw_out, <span class="at">labels =</span> labs) <span class="sc">%&gt;%</span></span>
 <span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a>  <span class="fu">format</span>(<span class="at">digits_qalys =</span> <span class="dv">3</span>)</span></code></pre></div>
 <pre><code>##              Outcome       New prosthesis
+##               &lt;fctr&gt;               &lt;char&gt;
 ## 1: Incremental QALYs 0.028 (0.011, 0.053)
 ## 2: Incremental costs        118 (57, 158)
 ## 3:   Incremental NMB   1,273 (428, 2,579)
@@ -1284,6 +1293,7 @@ create dummy variables for each age and sex category. To do this it’s
 helpful to reshape the mortality table above to a longer format.</p>
 <div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" tabindex="-1"></a><span class="fu">print</span>(mort_tbl2)</span></code></pre></div>
 <pre><code>##     age_lower age_upper    sex       age_sex    rate
+##         &lt;num&gt;     &lt;num&gt; &lt;char&gt;        &lt;char&gt;   &lt;num&gt;
 ##  1:        35        45 Female  Female_35_45 0.00099
 ##  2:        45        55 Female  Female_45_55 0.00260
 ##  3:        55        65 Female  Female_55_65 0.00670
@@ -1347,6 +1357,7 @@ objects.</p>
 <div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" tabindex="-1"></a>tpmat_id <span class="ot">&lt;-</span> <span class="fu">tpmatrix_id</span>(tpmatrix_data, <span class="dv">500</span>)</span>
 <span id="cb36-2"><a href="#cb36-2" tabindex="-1"></a><span class="fu">head</span>(tpmat_id)</span></code></pre></div>
 <pre><code>##    sample strategy_id patient_id grp_id patient_wt time_id time_start time_stop
+##     &lt;int&gt;       &lt;int&gt;      &lt;int&gt;  &lt;int&gt;      &lt;num&gt;   &lt;int&gt;      &lt;num&gt;     &lt;num&gt;
 ## 1:      1           1          1      1     0.0325       1          0         1
 ## 2:      1           1          1      1     0.0325       2          1         2
 ## 3:      1           1          1      1     0.0325       3          2         3
@@ -1386,10 +1397,13 @@ by <code>tpmatrix_id()</code>.</p>
 <span id="cb38-18"><a href="#cb38-18" tabindex="-1"></a>)</span>
 <span id="cb38-19"><a href="#cb38-19" tabindex="-1"></a>tpmat[<span class="dv">1</span>, ]</span></code></pre></div>
 <pre><code>##    s1_s1     s1_s2 s1_s3 s1_s4       s1_s5 s2_s1     s2_s2        s2_s3 s2_s4
+##    &lt;num&gt;     &lt;num&gt; &lt;num&gt; &lt;num&gt;       &lt;num&gt; &lt;num&gt;     &lt;num&gt;        &lt;num&gt; &lt;num&gt;
 ## 1:     0 0.9952231     0     0 0.004776859     0 0.9928315 0.0004685357     0
 ##     s2_s5 s3_s1 s3_s2 s3_s3     s3_s4      s3_s5 s4_s1 s4_s2      s4_s3
+##     &lt;num&gt; &lt;num&gt; &lt;num&gt; &lt;num&gt;     &lt;num&gt;      &lt;num&gt; &lt;num&gt; &lt;num&gt;      &lt;num&gt;
 ## 1: 0.0067     0     0     0 0.9885231 0.01147686     0     0 0.08283507
 ##        s4_s4  s4_s5 s5_s1 s5_s2 s5_s3 s5_s4 s5_s5
+##        &lt;num&gt;  &lt;num&gt; &lt;num&gt; &lt;num&gt; &lt;num&gt; &lt;num&gt; &lt;num&gt;
 ## 1: 0.9104649 0.0067     0     0     0     0     1</code></pre>
 <p>Finally, we combine the ID variables and the transition probability
 matrices into a single object.</p>
@@ -1410,11 +1424,12 @@ very similar, as expected.</p>
 <span id="cb41-8"><a href="#cb41-8" tabindex="-1"></a><span class="fu">summary</span>(ce_sim, <span class="at">labels =</span> labs)[grp <span class="sc">==</span> <span class="dv">2</span>] <span class="sc">%&gt;%</span></span>
 <span id="cb41-9"><a href="#cb41-9" tabindex="-1"></a>  <span class="fu">format</span>()</span></code></pre></div>
 <pre><code>##    Discount rate           Outcome  Standard prosthesis       New prosthesis
+##            &lt;num&gt;            &lt;fctr&gt;               &lt;char&gt;               &lt;char&gt;
 ## 1:         0.015             QALYs 14.58 (13.58, 15.50) 14.63 (13.62, 15.58)
 ## 2:         0.060 Costs: prosthesis       394 (394, 394)       579 (579, 579)
 ## 3:         0.060    Costs: medical        123 (57, 227)          34 (12, 80)
 ## 4:         0.060      Costs: total       517 (451, 621)       613 (591, 659)</code></pre>
-<p>However, time to construct the transition model was 3.1 times faster.
+<p>However, time to construct the transition model was 2.9 times faster.
 Although both are quite fast (time in the table is in seconds), this
 difference would become more pronounced as the number of parameter
 samples, treatment strategies, patients, and/or distinct time periods
@@ -1451,13 +1466,13 @@ elapsed
 define_model()
 </td>
 <td style="text-align:right;">
-1.582
+1.399
 </td>
 <td style="text-align:right;">
-0.236
+0.207
 </td>
 <td style="text-align:right;">
-1.818
+1.799
 </td>
 </tr>
 <tr>
@@ -1465,13 +1480,13 @@ define_model()
 Custom tpmatrix()
 </td>
 <td style="text-align:right;">
-0.490
+0.407
 </td>
 <td style="text-align:right;">
-0.097
+0.100
 </td>
 <td style="text-align:right;">
-0.587
+0.617
 </td>
 </tr>
 </tbody>
