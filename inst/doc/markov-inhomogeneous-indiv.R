@@ -292,65 +292,65 @@ icer(cea_pw_out, labels = labs) %>%
   format(digits_qalys = 3)
 
 ## ----eval = FALSE, echo = FALSE-----------------------------------------------
-#  # Rather than use a piecewise exponential distribution, approximate
-#  # mortality rates with a Weibull distribution
-#  fit_from_pwexp <- function(n = 10000, rate, time = mr_times){
-#    sim_pwexp <- rpwexp(10000, rate = rate, time = time)
-#  
-#    fit_wei <- flexsurvreg(formula = Surv(sim_pwexp) ~ 1, dist = "weibull")
-#    sim_wei <- rweibull(n,
-#                        shape = exp(fit_wei$res.t["shape", "est"]),
-#                        scale = exp(fit_wei$res.t["scale", "est"]))
-#  
-#    res <- fit_wei
-#    attr(res, "sim_dist") <- list(wei = summary(sim_wei),
-#                                  pwexp = summary(sim_pwexp))
-#    return(res)
-#  }
-#  fit_mort_wei <- fit_from_pwexp(rate = mr)
-#  fit_mort2_wei <- fit_from_pwexp(rate = mr + .02) # .02 = mean of omrPTHR
-#  
-#  # Sample the parameters
-#  transmod_coef2 <- define_rng({
-#    mr <- multi_normal_rng(mu = fit_mort_wei$res.t[, "est"],
-#                           Sigma = vcov(fit_mort_wei))
-#    mr_omrPTHR <- multi_normal_rng(mu = fit_mort2_wei$res.t[, "est"],
-#                                   Sigma = vcov(fit_mort2_wei))
-#    list(
-#      mr_shape = vec_to_dt(mr$shape),
-#      mr_scale = vec_to_dt(mr$scale),
-#      mr_omrPTHR_shape = vec_to_dt(mr_omrPTHR$shape),
-#      mr_omrPTHR_scale = vec_to_dt(mr_omrPTHR$scale)
-#    )
-#  }, n = n_samples)
-#  transmod_coef2 <- eval_rng(transmod_coef2)
-#  
-#  # Set parameters of transitions
-#  transition4_params <- params_surv(
-#    coefs = list(shape = transmod_coef2$mr_shape,
-#                 scale = transmod_coef2$mr_scale),
-#    dist = "weibull")
-#  
-#  transition6_params <- params_surv(
-#    coefs = list(shape = transmod_coef2$mr_omrPTHR_shape,
-#                 scale = transmod_coef2$mr_omrPTHR_scale),
-#    dist = "weibull")
-#  
-#  # Simulation
-#  ## Construct
-#  econmod2 <- econmod$clone(deep = TRUE)
-#  econmod2$trans_model$params[[4]] <- transition4_params
-#  econmod2$trans_model$params[[6]] <- transition6_params
-#  econmod2$trans_model$params[[8]]<- transition4_params
-#  
-#  ## Simulate
-#  econmod2$sim_disease(max_t = 60, max_age = 120)
-#  econmod2$sim_qalys(dr = .015)
-#  econmod2$sim_costs(dr = .06)
-#  ce_sim2 <- econmod2$summarize()
-#  ce_sim2$qalys[, .(mean = mean(qalys)),
-#                  by = c("strategy_id")]
-#  ce_sim2$costs[category == "total",
-#              .(mean = mean(costs)),
-#                by = c("strategy_id")]
+# # Rather than use a piecewise exponential distribution, approximate
+# # mortality rates with a Weibull distribution
+# fit_from_pwexp <- function(n = 10000, rate, time = mr_times){
+#   sim_pwexp <- rpwexp(10000, rate = rate, time = time)
+# 
+#   fit_wei <- flexsurvreg(formula = Surv(sim_pwexp) ~ 1, dist = "weibull")
+#   sim_wei <- rweibull(n,
+#                       shape = exp(fit_wei$res.t["shape", "est"]),
+#                       scale = exp(fit_wei$res.t["scale", "est"]))
+# 
+#   res <- fit_wei
+#   attr(res, "sim_dist") <- list(wei = summary(sim_wei),
+#                                 pwexp = summary(sim_pwexp))
+#   return(res)
+# }
+# fit_mort_wei <- fit_from_pwexp(rate = mr)
+# fit_mort2_wei <- fit_from_pwexp(rate = mr + .02) # .02 = mean of omrPTHR
+# 
+# # Sample the parameters
+# transmod_coef2 <- define_rng({
+#   mr <- multi_normal_rng(mu = fit_mort_wei$res.t[, "est"],
+#                          Sigma = vcov(fit_mort_wei))
+#   mr_omrPTHR <- multi_normal_rng(mu = fit_mort2_wei$res.t[, "est"],
+#                                  Sigma = vcov(fit_mort2_wei))
+#   list(
+#     mr_shape = vec_to_dt(mr$shape),
+#     mr_scale = vec_to_dt(mr$scale),
+#     mr_omrPTHR_shape = vec_to_dt(mr_omrPTHR$shape),
+#     mr_omrPTHR_scale = vec_to_dt(mr_omrPTHR$scale)
+#   )
+# }, n = n_samples)
+# transmod_coef2 <- eval_rng(transmod_coef2)
+# 
+# # Set parameters of transitions
+# transition4_params <- params_surv(
+#   coefs = list(shape = transmod_coef2$mr_shape,
+#                scale = transmod_coef2$mr_scale),
+#   dist = "weibull")
+# 
+# transition6_params <- params_surv(
+#   coefs = list(shape = transmod_coef2$mr_omrPTHR_shape,
+#                scale = transmod_coef2$mr_omrPTHR_scale),
+#   dist = "weibull")
+# 
+# # Simulation
+# ## Construct
+# econmod2 <- econmod$clone(deep = TRUE)
+# econmod2$trans_model$params[[4]] <- transition4_params
+# econmod2$trans_model$params[[6]] <- transition6_params
+# econmod2$trans_model$params[[8]]<- transition4_params
+# 
+# ## Simulate
+# econmod2$sim_disease(max_t = 60, max_age = 120)
+# econmod2$sim_qalys(dr = .015)
+# econmod2$sim_costs(dr = .06)
+# ce_sim2 <- econmod2$summarize()
+# ce_sim2$qalys[, .(mean = mean(qalys)),
+#                 by = c("strategy_id")]
+# ce_sim2$costs[category == "total",
+#             .(mean = mean(costs)),
+#               by = c("strategy_id")]
 
