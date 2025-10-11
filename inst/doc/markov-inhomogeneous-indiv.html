@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 
-<meta name="date" content="2025-09-28" />
+<meta name="date" content="2025-10-10" />
 
 <title>Time inhomogeneous Markov individual-level models</title>
 
@@ -564,7 +564,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Time inhomogeneous Markov individual-level
 models</h1>
-<h4 class="date">2025-09-28</h4>
+<h4 class="date">2025-10-10</h4>
 
 
 <div id="TOC">
@@ -1220,7 +1220,7 @@ time (in seconds), <code>hesim</code> is quite fast.</p>
 <span id="cb37-2"><a href="#cb37-2" tabindex="-1"></a>econmod<span class="sc">$</span><span class="fu">sim_disease</span>(<span class="at">max_t =</span> <span class="dv">60</span>, <span class="at">max_age =</span> <span class="dv">120</span>)</span>
 <span id="cb37-3"><a href="#cb37-3" tabindex="-1"></a><span class="fu">proc.time</span>() <span class="sc">-</span> ptm</span></code></pre></div>
 <pre><code>##    user  system elapsed 
-##   0.861   0.026   0.887</code></pre>
+##   0.874   0.038   0.916</code></pre>
 <div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" tabindex="-1"></a><span class="fu">head</span>(econmod<span class="sc">$</span>disprog_)</span></code></pre></div>
 <pre><code>##    sample strategy_id patient_id grp_id  from    to final time_start
 ##     &lt;num&gt;       &lt;int&gt;      &lt;int&gt;  &lt;int&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;      &lt;num&gt;
