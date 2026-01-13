@@ -1,7 +1,7 @@
 Package: hesim
 Type: Package
 Title: Health Economic Simulation Modeling and Decision Analysis
-Version: 0.5.7
+Version: 0.5.8
 Authors@R: c(
     person("Devin", "Incerti", , "devin.incerti@gmail.com", role = c("aut", "cre")),
     person("Jeroen P.", "Jansen", role = "aut"),
@@ -37,7 +37,7 @@ Suggests: covr, kableExtra, knitr, magrittr, mstate, nnet, numDeriv,
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
 NeedsCompilation: yes
-Packaged: 2025-10-10 17:33:25 UTC; devin
+Packaged: 2026-01-12 23:35:33 UTC; devin
 Author: Devin Incerti [aut, cre],
   Jeroen P. Jansen [aut],
   Mark Clements [aut],
@@ -45,4 +45,4 @@ Author: Devin Incerti [aut, cre],
     base R)
 Maintainer: Devin Incerti <devin.incerti@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-10-11 05:50:02 UTC
+Date/Publication: 2026-01-13 00:00:02 UTC

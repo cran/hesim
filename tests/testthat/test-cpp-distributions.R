@@ -94,13 +94,13 @@ test_that("pwexp", {
   
   r <- replicate(10, pwexp$trandom(max(time) + 1, Inf))
   expect_true(all(r >= max(time) + 1))
+  
+  # An error is thrown if time and rate are not the same length
+  expect_error(
+    new(PwExp, rate = c(1, 2), time = c(0, 2, 4)), 
+    "'time' and 'rate' must be the same length."
+  )
 })
-
-# An error is thrown if time and rate are not the same length
-expect_error(
-  new(PwExp, rate = c(1, 2), time = c(0, 2, 4)), 
-  "'time' and 'rate' must be the same length."
-)
 
 
 # Weibull distribution (AFT) ---------------------------------------------------
